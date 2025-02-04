@@ -1,5 +1,46 @@
 #!/bin/bash
 
+checkDependencies() {
+    local missing_deps=()
+    
+    # Check for curl
+    if ! command -v curl &> /dev/null; then
+        missing_deps+=("curl")
+    fi
+    
+    # Check specifically for libfuse2
+    if ! ldconfig -p | grep -q libfuse.so.2; then
+        missing_deps+=("libfuse2")
+    fi
+    
+    # If there are missing dependencies, install them
+    if [ ${#missing_deps[@]} -ne 0 ]; then
+        echo "Installing missing dependencies: ${missing_deps[*]}"
+        sudo apt-get update
+        sudo apt-get install -y "${missing_deps[@]}" || {
+            echo "Failed to install dependencies."
+            exit 1
+        }
+    fi
+
+    # Verify FUSE setup
+    if [ ! -e /dev/fuse ]; then
+        echo "FUSE device not found. Creating..."
+        sudo mknod -m 666 /dev/fuse c 10 229
+    fi
+
+    # Make sure FUSE has correct permissions
+    sudo chmod 666 /dev/fuse
+
+    # Add current user to fuse group if it exists
+    if getent group fuse > /dev/null; then
+        if ! groups | grep -q fuse; then
+            sudo usermod -a -G fuse "$USER"
+            echo "Added user to fuse group. You may need to log out and back in for this to take effect."
+        fi
+    fi
+}
+
 installCursor() {
     local CURSOR_URL="https://downloader.cursor.sh/linux/appImage/x64"
     local ICON_URL="https://miro.medium.com/v2/resize:fit:700/1*YLg8VpqXaTyRHJoStnMuog.png"
@@ -9,6 +50,9 @@ installCursor() {
     local APPIMAGE_PATH="$LOCAL_BIN/cursor.appimage"
     local ICON_PATH="$LOCAL_ICONS/cursor.png"
     local DESKTOP_ENTRY_PATH="$LOCAL_APPS/cursor.desktop"
+
+    echo "Checking for dependencies..."
+    checkDependencies
 
     # Create necessary directories if they don't exist
     mkdir -p "$LOCAL_APPS" "$LOCAL_BIN" "$LOCAL_ICONS"
@@ -39,15 +83,10 @@ installCursor() {
     # Notify if updating an existing installation
     if [ -f "$APPIMAGE_PATH" ]; then
         echo "Cursor AI IDE is already installed. Updating existing installation..."
+        # Remove old AppImage
+        rm -f "$APPIMAGE_PATH"
     else
         echo "Performing a fresh installation of Cursor AI IDE..."
-    fi
-
-    # Install curl if not installed
-    if ! command -v curl &> /dev/null; then
-        echo "curl is not installed. Installing..."
-        sudo apt-get update
-        sudo apt-get install -y curl || { echo "Failed to install curl."; exit 1; }
     fi
 
     # Download AppImage and Icon
@@ -109,6 +148,13 @@ EOL
 
     # Update desktop database
     update-desktop-database "$LOCAL_APPS"
+
+    # Test the AppImage
+    echo "Testing Cursor AppImage..."
+    if ! "$APPIMAGE_PATH" --no-sandbox --version &> /dev/null; then
+        echo "Warning: Cursor AppImage test failed. Please check your FUSE setup."
+        echo "You may need to log out and log back in for group changes to take effect."
+    fi
 
     # Inform the user to reload the shell
     echo "To apply changes, please restart your terminal or run the following command:"
