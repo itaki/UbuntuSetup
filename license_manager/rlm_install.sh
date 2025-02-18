@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/bin/bash
 #
 # RLM Service Installer for Ubuntu
 # Modified from original script by Ahad Mohebbi
@@ -7,15 +7,23 @@ clear
 echo "======== Installing the License Server on Linux ========"
 echo "Starting the RLM license server"
 
-#extract license files...
+# Check if rlm.tar exists
+if [ ! -f "./rlm.tar" ]; then
+	echo "Error: rlm.tar not found!"
+	echo "Please ensure rlm.tar is in the same directory as this script."
+	exit 1
+fi
+
+# Create RLM directory and extract files
+sudo mkdir -p /opt/rlm
 sudo tar -xf ./rlm.tar -C /opt/
 
-#setting the execute permission...
+# Setting the execute permission...
 sudo chmod +x /opt/rlm/rlm
 sudo chmod +x /opt/rlm/rlmutil
 sudo chmod +x /opt/rlm/rlmenvset.sh
 
-#setup license environment in startup bash files...
+# Setup license environment in startup bash files...
 if [ -f ~/.bashrc ]; then
 	echo "source /opt/rlm/rlmenvset.sh" >> ~/.bashrc
 fi
@@ -24,69 +32,57 @@ if [ -f ~/.bash_profile ]; then
 	echo "source /opt/rlm/rlmenvset.sh" >> ~/.bash_profile
 fi
 
-#setup foundry license files...
+# Setup foundry license files...
 FOUNDRY_LIC_PATH="/usr/local/foundry/RLM"
-if [ -e $FOUNDRY_LIC_PATH ];
-then
-	cd /opt/rlm	
-	sudo cp ./foundry.lic /usr/local/foundry/RLM
-	sudo cp ./foundry.set /usr/local/foundry/RLM
+if [ -e $FOUNDRY_LIC_PATH ]; then
+	sudo cp /opt/rlm/foundry.lic /usr/local/foundry/RLM
+	sudo cp /opt/rlm/foundry.set /usr/local/foundry/RLM
 	sudo chmod -R 777 /usr/local/foundry
 else
-	cd /opt/rlm	
 	sudo mkdir -p /usr/local/foundry/RLM
 	sudo mkdir -p /usr/local/foundry/RLM/log
-	sudo cp ./foundry.lic /usr/local/foundry/RLM
-	sudo cp ./foundry.set /usr/local/foundry/RLM
+	sudo cp /opt/rlm/foundry.lic /usr/local/foundry/RLM
+	sudo cp /opt/rlm/foundry.set /usr/local/foundry/RLM
 	sudo chmod -R 777 /usr/local/foundry
 fi
 
-#setup genarts license files...
+# Setup genarts license files...
 GENARTS_LIC_PATH="/usr/genarts/rlm/"
-if [ -e $GENARTS_LIC_PATH ];
-then
-	cd /opt/rlm	
+if [ -e $GENARTS_LIC_PATH ]; then
 	sudo rm /usr/genarts/rlm/*
-	sudo cp genarts.lic /usr/genarts/rlm
-	sudo cp genarts.set /usr/genarts/rlm
+	sudo cp /opt/rlm/genarts.lic /usr/genarts/rlm
+	sudo cp /opt/rlm/genarts.set /usr/genarts/rlm
 	sudo chmod -R 777 /usr/genarts/rlm/
 else
-	cd /opt/rlm	
 	sudo mkdir -p /usr/genarts/rlm/
-	sudo cp genarts.lic /usr/genarts/rlm
-	sudo cp genarts.set /usr/genarts/rlm
+	sudo cp /opt/rlm/genarts.lic /usr/genarts/rlm
+	sudo cp /opt/rlm/genarts.set /usr/genarts/rlm
 	sudo chmod -R 777 /usr/genarts/rlm/
 fi
 
-#setup peregrineLabs license files...
+# Setup peregrineLabs license files...
 PEREGRINELABS_LIC_PATH="/var/PeregrineLabs/rlm/"
-if [ -e $PEREGRINELABS_LIC_PATH ];
-then
-	cd /opt/rlm
-	sudo cp peregrinel.set /var/PeregrineLabs/rlm/
-	sudo cp peregrinel.lic /var/PeregrineLabs/rlm/
+if [ -e $PEREGRINELABS_LIC_PATH ]; then
+	sudo cp /opt/rlm/peregrinel.set /var/PeregrineLabs/rlm/
+	sudo cp /opt/rlm/peregrinel.lic /var/PeregrineLabs/rlm/
 	sudo chmod -R 777 /var/PeregrineLabs/rlm/
 else
 	sudo mkdir -p /var/PeregrineLabs/rlm/
-	cd /opt/rlm
-	sudo cp peregrinel.set /var/PeregrineLabs/rlm/
-	sudo cp peregrinel.lic /var/PeregrineLabs/rlm/
+	sudo cp /opt/rlm/peregrinel.set /var/PeregrineLabs/rlm/
+	sudo cp /opt/rlm/peregrinel.lic /var/PeregrineLabs/rlm/
 	sudo chmod -R 777 /var/PeregrineLabs/rlm/
 fi
 
-#setup maxwell license files...
+# Setup maxwell license files...
 MAXWELL_LIC_PATH="$HOME/Maxwell"
-if [ -e $MAXWELL_LIC_PATH ];
-then
-	cd /opt/rlm
-	sudo cp nextlimit.set $HOME/Maxwell
-	sudo cp nextlimit.lic $HOME/Maxwell
+if [ -e $MAXWELL_LIC_PATH ]; then
+	sudo cp /opt/rlm/nextlimit.set $HOME/Maxwell
+	sudo cp /opt/rlm/nextlimit.lic $HOME/Maxwell
 	sudo chmod -R 777 $HOME/Maxwell
 else
 	sudo mkdir -p $HOME/Maxwell
-	cd /opt/rlm
-	sudo cp nextlimit.set $HOME/Maxwell
-	sudo cp nextlimit.lic $HOME/Maxwell
+	sudo cp /opt/rlm/nextlimit.set $HOME/Maxwell
+	sudo cp /opt/rlm/nextlimit.lic $HOME/Maxwell
 	sudo chmod -R 777 $HOME/Maxwell
 fi
 
@@ -129,4 +125,3 @@ echo "Checking service status..."
 sudo systemctl status rlmd
 echo "You can check the service status anytime with: sudo systemctl status rlmd"
 echo "You can check license status with: sudo /opt/rlm/rlmutil rlmstat -a"
-cd $HOME
