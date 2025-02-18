@@ -1,0 +1,7 @@
+when we are complete with a development, always update the scrip .sh file in the repository with the
+latest changes.
+
+
+always keep a companion .md file for each .sh file that explains what's going on in the .sh file and why it's written that way.
+
+update this file along with the .sh file.
