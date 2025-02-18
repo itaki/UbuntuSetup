@@ -1,7 +1,23 @@
-when we are complete with a development, always update the scrip .sh file in the repository with the
-latest changes.
+# Ubuntu Setup Project Overview
 
+OBJECTIVE: To create and implement scripts to do setup and actually do the setup for a new Ubuntu installation.
 
-always keep a companion .md file for each .sh file that explains what's going on in the .sh file and why it's written that way.
+The project is split into stages. Each stage has a corresponding directory. That directory contains the .sh file and a companion .md file and may have some other supporting files. These directories are not in order of completion.
 
-update this file along with the .sh file.
+The .md file should explain what the .sh file does and why it's written that way. This will include things like failures that we might have encountered and how we overcame them. This is so that we can optimize and not repeat the same mistakes.
+
+When the stage is complete, we will test the setup and you will say "it works". Then we will complete the following tasks:
+
+Modify the .sh and .md files to reflect the latest changes.
+
+Make sure NOT to include in the .sh file:
+- attempts that did not work.
+- commands that we had to then undo.
+- commands that were not successful.
+- installs that were not helpful.
+- anything that we did that was unnecessary.
+
+Make sure to include notes about what didn't work in the .md file as well as what did work.
+
+Always after completing a stage OR when the next step is a reboot suggest a commit and provide a commit message. If I say let's commit, then do the commit and push. 
+
