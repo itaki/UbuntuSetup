@@ -1,0 +1,15 @@
+{
+  "created": "2024-03-20T00:00:00.000000000+00:00",
+  "updated": "2024-03-20T00:00:00.000000000+00:00",
+  "name": "001-deny-nuke-external",
+  "enabled": true,
+  "precedence": true,
+  "action": "deny",
+  "duration": "always",
+  "operator": {
+    "type": "simple",
+    "operand": "process.path",
+    "sensitive": false,
+    "data": "/usr/local/Nuke15.1v5/Nuke15.1"
+  }
+} 

@@ -1,0 +1,3 @@
+Modify version number
+Place these JSON files in your OpenSnitch rules directory 
+(typically /etc/opensnitch/rules/
