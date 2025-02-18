@@ -6,12 +6,52 @@ get_version() {
     echo "$filename" | grep -o '[0-9]\+\.[0-9]\+v[0-9]\+'
 }
 
-# Find the most recent Nuke installer in the nuke directory
-NUKE_DIR="$HOME/UbuntuSetup/nuke"
-NUKE_INSTALLER=$(ls "$NUKE_DIR"/Nuke*-linux-x86_64.run | sort -V | tail -n 1)
+# Function to find Nuke installer
+find_installer() {
+    local downloads_dir="$HOME/Downloads"
+    local manual_path=""
+    
+    # First try Downloads folder
+    local installer=$(ls "$downloads_dir"/Nuke*-linux-x86_64.run 2>/dev/null | sort -V | tail -n 1)
+    
+    if [ -n "$installer" ]; then
+        echo "$installer"
+        return 0
+    fi
+    
+    # If not found in Downloads, ask for manual path
+    echo "No Nuke installer found in Downloads folder."
+    echo "Would you like to:"
+    echo "1. Enter the path to the installer"
+    echo "2. Quit"
+    read -p "Enter your choice (1 or 2): " choice
+    
+    case $choice in
+        1)
+            read -p "Please enter the full path to the Nuke installer: " manual_path
+            if [ -f "$manual_path" ] && [[ "$manual_path" == *"Nuke"*"-linux-x86_64.run" ]]; then
+                echo "$manual_path"
+                return 0
+            else
+                echo "Error: Invalid installer path or file not found."
+                return 1
+            fi
+            ;;
+        2)
+            echo "Installation cancelled."
+            return 1
+            ;;
+        *)
+            echo "Invalid choice. Installation cancelled."
+            return 1
+            ;;
+    esac
+}
 
-if [ ! -f "$NUKE_INSTALLER" ]; then
-    echo "Error: No Nuke installer found in $NUKE_DIR"
+# Find the Nuke installer
+NUKE_INSTALLER=$(find_installer)
+
+if [ $? -ne 0 ]; then
     exit 1
 fi
 
