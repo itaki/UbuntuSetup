@@ -4,11 +4,13 @@
 This script automates the installation of Foundry's Nuke software on Ubuntu, including setting up desktop entries and icons.
 
 ## Prerequisites
+
 - A valid Nuke installer file (`.run` format) in your Downloads folder or a known location
 - Sudo privileges
 - GTK icon cache utilities installed
 
 ## Features
+
 - Automatically detects the latest Nuke installer in the Downloads folder
 - Allows manual path input if installer is not found in Downloads
 - Creates desktop entries for both Nuke and NukeX
@@ -17,6 +19,7 @@ This script automates the installation of Foundry's Nuke software on Ubuntu, inc
 - Handles version extraction and management automatically
 
 ## Installation Process
+
 1. Searches for Nuke installer in Downloads folder
 2. If not found, prompts for manual path input
 3. Extracts version information from the installer filename
@@ -35,6 +38,7 @@ If the installer is not found in Downloads, you will be prompted to enter the fu
 
 ## Post-Installation
 After installation, you can:
+
 1. Launch Nuke from the applications menu
 2. Pin the application to your dash
 3. Run Nuke from terminal using `nukeX.YvZ` (e.g., `nuke15.1v5`)
