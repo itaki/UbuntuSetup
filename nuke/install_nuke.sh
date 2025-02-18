@@ -48,6 +48,13 @@ find_installer() {
     esac
 }
 
+# Check if script is running from the correct directory
+if [ ! -f "nuke_icon.png" ] || [ ! -f "nukex_icon.png" ]; then
+    echo "Error: Custom icons not found!"
+    echo "Please run this script from the directory containing the Nuke icons."
+    exit 1
+fi
+
 # Find the Nuke installer
 NUKE_INSTALLER=$(find_installer)
 
@@ -74,9 +81,13 @@ for SIZE in 256x256 48x48; do
     sudo mkdir -p "$ICONS_DIR"
 done
 
-# Copy icons from the installed Nuke
-sudo cp "/usr/local/$INSTALL_DIR/plugins/icons/NukeApp256.png" "/usr/share/icons/hicolor/256x256/apps/nuke$VERSION.png"
-sudo cp "/usr/local/$INSTALL_DIR/plugins/icons/NukeXApp48.png" "/usr/share/icons/hicolor/48x48/apps/nukex$VERSION.png"
+# Copy our custom icons
+sudo cp "nuke_icon.png" "/usr/share/icons/hicolor/256x256/apps/nuke$VERSION.png"
+sudo cp "nukex_icon.png" "/usr/share/icons/hicolor/256x256/apps/nukex$VERSION.png"
+
+# Create folder icon directory and copy folder icon
+sudo mkdir -p "/usr/share/icons/hicolor/48x48/places"
+sudo cp "nuke_folder_icon.png" "/usr/share/icons/hicolor/48x48/places/folder-nuke.png"
 
 # Create desktop entry for Nuke
 cat > "/tmp/nuke$VERSION.desktop" << EOF
@@ -124,6 +135,21 @@ sudo chmod +x "/usr/share/applications/nukex$VERSION.desktop"
 sudo ln -sf "/usr/local/$NUKE_EXEC" "/usr/local/bin/nuke$VERSION"
 sudo ln -sf "/usr/local/$NUKE_EXEC" "/usr/local/bin/nukex$VERSION"
 
+# Create Nuke scripts directory with custom icon
+NUKE_SCRIPTS_DIR="$HOME/.nuke"
+mkdir -p "$NUKE_SCRIPTS_DIR"
+
+# Create or update user's init.py
+INIT_PY="$NUKE_SCRIPTS_DIR/init.py"
+if [ ! -f "$INIT_PY" ]; then
+    cat > "$INIT_PY" << EOF
+# Nuke initialization file
+import nuke
+
+# Add any custom Nuke initialization here
+EOF
+fi
+
 # Update icon cache
 sudo gtk-update-icon-cache -f -t /usr/share/icons/hicolor
 
@@ -131,5 +157,6 @@ echo "Installation complete! You can now:"
 echo "1. Launch Nuke from your applications menu (should be pinnable to dash)"
 echo "2. Run 'nuke$VERSION' from terminal for Nuke"
 echo "3. Run 'nukex$VERSION' from terminal for NukeX"
+echo "4. Your Nuke scripts directory is set up at: $NUKE_SCRIPTS_DIR"
 
 echo -e "\nNote: You may need to log out and back in for the application icons to appear correctly in the menu." 
