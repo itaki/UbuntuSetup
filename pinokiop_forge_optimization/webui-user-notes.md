@@ -1,6 +1,11 @@
 # WebUI User Configuration Notes
 
 ## Recent Changes
+- Added TCMalloc integration:
+  - Installed Google Performance Tools inside Docker container
+  - Configured LD_PRELOAD to use TCMalloc
+  - Optimized TCMalloc parameters for AI workloads
+  - Added memory allocation monitoring
 - Added performance optimization packages:
   - Flash Attention 2: Optimized attention mechanism
   - Better Transformer: Enhanced transformer operations
@@ -68,9 +73,20 @@ Based on latest startup:
 
 ### 1. Memory Management
 - TCMalloc Integration:
-  - Using libtcmalloc_minimal.so.4
-  - Linked with glibc 2.39
-  - Configured with LD_PRELOAD
+  - Using libtcmalloc_minimal.so.4 from Google Performance Tools
+  - Configured with LD_PRELOAD in Docker container
+  - Optimized parameters:
+    - TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD=1073741824 (1GB)
+    - TCMALLOC_RELEASE_RATE=10.0
+  - Benefits:
+    - Reduced memory fragmentation
+    - Faster allocation/deallocation
+    - Thread-local caching for improved concurrency
+    - Better handling of large memory blocks
+  - Installation:
+    - Automated via install-tcmalloc.sh script
+    - Installs directly inside Docker container
+    - Modifies webui-user.sh automatically
 
 ### 2. CUDA Optimization
 - Core Settings:
