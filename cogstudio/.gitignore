@@ -1,0 +1,19 @@
+# Ignore the CogVideo repository
+CogVideo/
+
+# Ignore Python virtual environments
+*/env/
+
+# Ignore generated outputs
+*/outputs/
+
+# Ignore Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ignore model files
+*.pth
+*.pkl
+*.pt
+*.bin 
