@@ -96,6 +96,51 @@ getCurrentVersion() {
     echo "$version"
 }
 
+# Function to check if Cursor is running and optionally kill it
+checkAndKillCursor() {
+    local force_kill=$1
+    
+    # Check if any Cursor processes are running
+    if pgrep -f "cursor" > /dev/null; then
+        if [ "$force_kill" = "true" ]; then
+            echo "Killing all Cursor processes..."
+            pkill -f "cursor"
+            sleep 2
+            
+            # If processes are still running, use SIGKILL
+            if pgrep -f "cursor" > /dev/null; then
+                echo "Some Cursor processes are still running. Using force kill..."
+                pkill -9 -f "cursor"
+                sleep 1
+            fi
+            
+            # Final check
+            if pgrep -f "cursor" > /dev/null; then
+                echo "ERROR: Unable to kill all Cursor processes. Please close Cursor manually."
+                return 1
+            else
+                echo "All Cursor processes successfully terminated."
+                return 0
+            fi
+        else
+            echo "Cursor is currently running."
+            echo "Please close all Cursor windows and processes before updating."
+            echo "Alternatively, you can force-kill all Cursor processes."
+            read -p "Do you want to force-kill all Cursor processes? (y/n): " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                checkAndKillCursor "true"
+                return $?
+            else
+                echo "Update canceled. Please close Cursor manually and try again."
+                return 1
+            fi
+        fi
+    fi
+    
+    return 0
+}
+
 installCursor() {
     local CURSOR_URL="https://cursor.so/resources/linux/cursor.appimage"
     local ICON_URL="https://miro.medium.com/v2/resize:fit:700/1*YLg8VpqXaTyRHJoStnMuog.png"
@@ -112,9 +157,8 @@ installCursor() {
     # Create necessary directories if they don't exist
     mkdir -p "$LOCAL_APPS" "$LOCAL_BIN" "$LOCAL_ICONS"
 
-    # Check for Cursor process
-    if pgrep -f "cursor" > /dev/null; then
-        echo "Cursor is currently running. Please close Cursor before updating."
+    # Check for Cursor process and offer to kill it if running
+    if ! checkAndKillCursor "false"; then
         exit 1
     fi
 

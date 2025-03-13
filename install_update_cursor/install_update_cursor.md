@@ -19,11 +19,13 @@ The `install_cursor.sh` script now provides an interactive installation and upda
 3. It prompts the user for confirmation before installing or updating
 4. It creates a backup of the existing installation before updating
 5. It restores the backup if the update fails
+6. It offers to safely terminate all Cursor processes if they're running
 
 This approach ensures that:
 - Users are aware of what version they're updating to
 - No data is lost during the update process
 - The update only proceeds with explicit user consent
+- Background processes are properly handled
 
 ### URL Selection
 
@@ -66,6 +68,19 @@ The scripts ensure that all necessary dependencies are installed:
 ### Shell Integration
 
 The installation script adds a shell function to the user's shell configuration file (`.bashrc`, `.zshrc`, or `config.fish`) to make Cursor easily accessible from the command line.
+
+### Process Management
+
+The script includes robust process management to handle cases where:
+- Multiple Cursor processes are running
+- Background processes might not be visible to the user
+- Processes might be in different states (AppImage, mounted version, etc.)
+
+The process management features:
+1. Detect all running Cursor processes
+2. Offer the user the option to force-kill these processes
+3. Use a two-stage termination approach (SIGTERM followed by SIGKILL if needed)
+4. Verify that all processes have been terminated before proceeding
 
 ## Usage
 
@@ -123,6 +138,14 @@ We found that the automated update process sometimes failed to apply updates aft
 2. Added better error handling and backup/restore functionality
 3. Improved version detection and validation
 
+### Issue: Multiple Cursor Processes Running
+
+We discovered that sometimes multiple Cursor processes could be running in the background, preventing updates. To address this, we:
+
+1. Added robust process detection to find all Cursor-related processes
+2. Implemented a safe process termination system with user confirmation
+3. Added a force-kill option for stubborn processes
+
 ### Solution:
 
 1. Updated the download URL to `https://cursor.so/resources/linux/cursor.appimage`
@@ -133,6 +156,7 @@ We found that the automated update process sometimes failed to apply updates aft
 6. Improved logging to show version information
 7. Added interactive confirmation for updates
 8. Implemented backup and restore functionality
+9. Added process management to handle multiple Cursor instances
 
 ### Other Potential Issues
 
