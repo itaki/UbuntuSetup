@@ -339,44 +339,6 @@ install_cursor() {
     echo "Cursor installed successfully!"
 }
 
-# Function to set up new installation
-setup_new_installation() {
-    # Download icon
-    echo "Downloading Cursor icon..."
-    curl -L "$ICON_URL" -o /tmp/cursor.png || {
-        echo "Failed to download icon. Using default icon."
-    }
-    
-    if [ -f "/tmp/cursor.png" ]; then
-        mv /tmp/cursor.png "$ICON_PATH"
-    fi
-    
-    # Create desktop entry
-    echo "Creating desktop entry..."
-    cat > "$DESKTOP_ENTRY_PATH" <<EOL
-[Desktop Entry]
-Version=1.0
-Name=Cursor AI IDE
-Comment=AI-powered code editor
-Exec=$APPIMAGE_PATH --no-sandbox %F
-Icon=$ICON_PATH
-Terminal=false
-Type=Application
-Categories=Development;TextEditor;IDE;
-MimeType=text/plain;inode/directory;
-StartupWMClass=Cursor
-StartupNotify=true
-EOL
-    
-    chmod +x "$DESKTOP_ENTRY_PATH"
-    
-    # Update desktop database
-    update-desktop-database "$LOCAL_APPS" 2>/dev/null || true
-    
-    # Add shell alias
-    setup_shell_alias
-}
-
 # Function to set up shell alias
 setup_shell_alias() {
     local SHELL_NAME=$(basename "$SHELL")
@@ -458,33 +420,145 @@ echo "=== Checking Versions ==="
 CURRENT_VERSION=$(get_current_version)
 LATEST_VERSION=$(get_latest_version)
 
-if compare_versions "$CURRENT_VERSION" "$LATEST_VERSION"; then
-    # Install section
+# Checkpoint 1: Confirm installation or update
+if [ "$IS_NEW_INSTALL" = true ]; then
     echo
-    echo "=== Installing Cursor ==="
-    
-    # Kill any running Cursor processes
-    kill_cursor_processes
-    
-    # Install Cursor
-    install_cursor
-    
-    # New install section (if applicable)
-    if [ "$IS_NEW_INSTALL" = true ]; then
+    echo "This is a new installation of Cursor."
+    read -p "Install Cursor version $LATEST_VERSION? (y/n): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Installation cancelled."
+        exit 0
+    fi
+else
+    echo
+    echo "Cursor version $CURRENT_VERSION is currently installed."
+    if compare_versions "$CURRENT_VERSION" "$LATEST_VERSION"; then
+        read -p "Update to Cursor version $LATEST_VERSION? (y/n): " -n 1 -r
         echo
-        echo "=== Setting Up New Installation ==="
-        setup_new_installation
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Update cancelled."
+            exit 0
+        fi
+    else
+        echo "You already have the latest version."
+        read -p "Would you like to reinstall the current version? (y/n): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Reinstallation cancelled."
+            exit 0
+        fi
+    fi
+fi
+
+# Install section
+echo
+echo "=== Installing Cursor ==="
+
+# Kill any running Cursor processes
+kill_cursor_processes
+
+# Install Cursor
+install_cursor
+
+# New install section (if applicable)
+if [ "$IS_NEW_INSTALL" = true ]; then
+    echo
+    echo "=== Setting Up New Installation ==="
+    
+    # Checkpoint 2: Confirm desktop entry creation
+    read -p "Would you like to create a desktop entry for Cursor? (y/n): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        # Download icon
+        echo "Downloading Cursor icon..."
+        curl -L "$ICON_URL" -o /tmp/cursor.png || {
+            echo "Failed to download icon. Using default icon."
+        }
+        
+        if [ -f "/tmp/cursor.png" ]; then
+            mv /tmp/cursor.png "$ICON_PATH"
+        fi
+        
+        # Create desktop entry
+        echo "Creating desktop entry..."
+        cat > "$DESKTOP_ENTRY_PATH" <<EOL
+[Desktop Entry]
+Version=1.0
+Name=Cursor AI IDE
+Comment=AI-powered code editor
+Exec=$APPIMAGE_PATH --no-sandbox %F
+Icon=$ICON_PATH
+Terminal=false
+Type=Application
+Categories=Development;TextEditor;IDE;
+MimeType=text/plain;inode/directory;
+StartupWMClass=Cursor
+StartupNotify=true
+EOL
+        
+        chmod +x "$DESKTOP_ENTRY_PATH"
+        
+        # Update desktop database
+        update-desktop-database "$LOCAL_APPS" 2>/dev/null || true
+        
+        echo "Desktop entry created successfully."
+    else
+        echo "Skipping desktop entry creation."
     fi
     
-    # Exit section
+    # Add shell alias
+    read -p "Would you like to add a shell alias for Cursor? (y/n): " -n 1 -r
     echo
-    echo "=== Installation Complete ==="
-    show_exit_options
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        setup_shell_alias
+    else
+        echo "Skipping shell alias setup."
+    fi
 else
-    # Exit section (no update needed)
+    # For updates, ask if they want to refresh the desktop entry
+    read -p "Would you like to refresh the desktop entry for Cursor? (y/n): " -n 1 -r
     echo
-    echo "=== No Update Required ==="
-    show_exit_options
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        # Download icon
+        echo "Downloading Cursor icon..."
+        curl -L "$ICON_URL" -o /tmp/cursor.png || {
+            echo "Failed to download icon. Using existing icon."
+        }
+        
+        if [ -f "/tmp/cursor.png" ]; then
+            mv /tmp/cursor.png "$ICON_PATH"
+        fi
+        
+        # Create desktop entry
+        echo "Updating desktop entry..."
+        cat > "$DESKTOP_ENTRY_PATH" <<EOL
+[Desktop Entry]
+Version=1.0
+Name=Cursor AI IDE
+Comment=AI-powered code editor
+Exec=$APPIMAGE_PATH --no-sandbox %F
+Icon=$ICON_PATH
+Terminal=false
+Type=Application
+Categories=Development;TextEditor;IDE;
+MimeType=text/plain;inode/directory;
+StartupWMClass=Cursor
+StartupNotify=true
+EOL
+        
+        chmod +x "$DESKTOP_ENTRY_PATH"
+        
+        # Update desktop database
+        update-desktop-database "$LOCAL_APPS" 2>/dev/null || true
+        
+        echo "Desktop entry updated successfully."
+    fi
 fi
+
+# Exit section
+echo
+echo "=== Installation Complete ==="
+show_exit_options
 
 exit 0

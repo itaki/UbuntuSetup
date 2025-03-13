@@ -9,10 +9,30 @@ The `install_cursor.sh` script provides a simple way to install or update the Cu
 1. Check if Cursor is already installed
 2. Determine the current version (if installed)
 3. Check for the latest available version
-4. Install or update Cursor based on user confirmation
-5. Set up desktop integration and shell aliases
+4. Prompt for confirmation before installation or update
+5. Install or update Cursor based on user confirmation
+6. Offer to set up desktop integration and shell aliases
 
 ## Implementation Details
+
+### User Interaction
+
+The script includes several checkpoints to ensure the user is informed and in control:
+
+1. **Installation/Update Confirmation**:
+   - For new installations: "This is a new installation of Cursor. Install Cursor version X.Y.Z?"
+   - For updates: "Cursor version X.Y.Z is currently installed. Update to Cursor version A.B.C?"
+   - For reinstallation: "You already have the latest version. Would you like to reinstall the current version?"
+
+2. **Desktop Integration Confirmation**:
+   - For new installations: "Would you like to create a desktop entry for Cursor?"
+   - For updates: "Would you like to refresh the desktop entry for Cursor?"
+
+3. **Shell Integration Confirmation**:
+   - "Would you like to add a shell alias for Cursor?"
+
+4. **Launch Confirmation**:
+   - "Would you like to open Cursor now?"
 
 ### Version Detection
 
@@ -57,17 +77,17 @@ The installation process:
 
 ### Desktop Integration
 
-The script sets up proper desktop integration:
-1. Creates a desktop entry file
-2. Downloads and installs the Cursor icon
+The script offers to set up desktop integration:
+1. Downloads and installs the Cursor icon
+2. Creates or updates a desktop entry file
 3. Updates the desktop database
 
 ### Shell Integration
 
-For convenient command-line access, the script:
-1. Detects the user's shell (bash, zsh, or fish)
-2. Adds a shell function to the appropriate configuration file
-3. Provides instructions for activating the new function
+For convenient command-line access, the script offers to:
+1. Detect the user's shell (bash, zsh, or fish)
+2. Add a shell function to the appropriate configuration file
+3. Provide instructions for activating the new function
 
 ## Troubleshooting
 
