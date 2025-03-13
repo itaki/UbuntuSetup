@@ -99,23 +99,31 @@ getCurrentVersion() {
 # Function to check if Cursor is running and optionally kill it
 checkAndKillCursor() {
     local force_kill=$1
+    local script_pid=$$
     
-    # Check if any Cursor processes are running
-    if pgrep -f "cursor" > /dev/null; then
+    # Check if any Cursor processes are running (excluding this script)
+    if pgrep -f "cursor" | grep -v "$script_pid" | grep -v "install_cursor.sh" > /dev/null; then
         if [ "$force_kill" = "true" ]; then
-            echo "Killing all Cursor processes..."
-            pkill -f "cursor"
+            echo "Killing all Cursor processes (except this installer)..."
+            # Kill all cursor processes except this script
+            for pid in $(pgrep -f "cursor" | grep -v "$script_pid" | grep -v "install_cursor.sh"); do
+                echo "Killing process $pid"
+                kill $pid 2>/dev/null
+            done
             sleep 2
             
             # If processes are still running, use SIGKILL
-            if pgrep -f "cursor" > /dev/null; then
+            if pgrep -f "cursor" | grep -v "$script_pid" | grep -v "install_cursor.sh" > /dev/null; then
                 echo "Some Cursor processes are still running. Using force kill..."
-                pkill -9 -f "cursor"
+                for pid in $(pgrep -f "cursor" | grep -v "$script_pid" | grep -v "install_cursor.sh"); do
+                    echo "Force killing process $pid"
+                    kill -9 $pid 2>/dev/null
+                done
                 sleep 1
             fi
             
             # Final check
-            if pgrep -f "cursor" > /dev/null; then
+            if pgrep -f "cursor" | grep -v "$script_pid" | grep -v "install_cursor.sh" > /dev/null; then
                 echo "ERROR: Unable to kill all Cursor processes. Please close Cursor manually."
                 return 1
             else
