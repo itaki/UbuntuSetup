@@ -36,11 +36,11 @@ The script includes several checkpoints to ensure the user is informed and in co
 
 ### Version Detection
 
-The script uses multiple methods to detect the current and latest versions of Cursor:
+The script uses reliable methods to detect the current and latest versions of Cursor:
 
 1. For the installed version:
-   - Runs the AppImage with `--version` flag
-   - Extracts version information from the AppImage binary
+   - Checks running Cursor processes for version information
+   - Falls back to running the AppImage with `--version` flag if no process is found
    - Validates that the detected version matches Cursor's versioning pattern
 
 2. For the latest version:

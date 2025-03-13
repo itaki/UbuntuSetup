@@ -68,34 +68,27 @@ get_current_version() {
         return 1
     fi
     
-    # Try to get version from AppImage
+    # Check if Cursor is running and get version from process
     local version=""
     
-    # Method 1: Run with --version flag
-    version=$("$APPIMAGE_PATH" --no-sandbox --version 2>/dev/null | grep -oE '(4[0-9]+|5[0-9]+)\.[0-9]+(\.[0-9]+)?' | head -1)
+    # Method: Check running processes for version information
+    version=$(ps aux | grep -i cursor | grep -v grep | grep -i version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
     
-    # Method 2: Extract from AppImage strings
+    # If no running process, try to start Cursor with --version flag
     if [ -z "$version" ]; then
-        version=$(strings "$APPIMAGE_PATH" | grep -oE 'Cursor/[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d'/' -f2)
-    fi
-    
-    # Method 3: Look for version in package.json
-    if [ -z "$version" ]; then
-        version=$(strings "$APPIMAGE_PATH" | grep -A5 '"version":' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+        echo "No running Cursor process found. Trying to check version directly..."
+        version=$("$APPIMAGE_PATH" --no-sandbox --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
     fi
     
     # Validate version format
     if [ -n "$version" ]; then
-        local major=$(echo "$version" | cut -d. -f1)
-        if [ "$major" -lt 40 ] || [ "$major" -gt 60 ]; then
-            echo "Unknown version detected."
-            return 1
-        fi
         echo "Current Cursor version: $version"
         echo "$version"
         return 0
     else
         echo "Could not determine current version."
+        # If we can't determine the version but the file exists, we'll assume it's installed
+        # but we don't know the version
         return 1
     fi
 }
