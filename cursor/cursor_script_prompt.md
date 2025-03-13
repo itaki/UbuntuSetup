@@ -1,40 +1,91 @@
-# cursor_install.sh script requirements:
+# Cursor Installation Script Documentation
 
-### Information section:
+## Overview
+This script installs or updates the Cursor AI IDE on Ubuntu systems. It handles both new installations and updates, with special handling for new installations to set up dependencies and desktop integration.
 
-1. checks the current version of cursor
- - if there is no current version, it will skip to the install section remmebering that this is a new install.
+## Implementation Details
 
-2. checks the online repository for the most recent version of cursor
+### Information Section
+- Checks if Cursor is already installed by looking for the AppImage in `~/.local/bin`
+- Fetches the latest version information from the official GitHub repository
+- Falls back to checking for recent AppImages in Downloads directory if online check fails
+- Extracts version and download URL from the repository data
 
-3. if the most recent version is higher than the current version go to the install section.
+### Install Section
+- Always prompts user for permission to install/update
+- Kills any running Cursor processes to prevent conflicts
+- Downloads the latest AppImage from the official source
+- Makes the AppImage executable
+- Preserves user preferences and settings during updates
 
-4. if the most recent version is the same as the current version go to the exit section.
+### New Install Section
+- Only runs for new installations
+- Checks for required dependencies (curl, libfuse2)
+- Offers to install missing dependencies
+- Sets up FUSE permissions and group membership
+- Creates desktop entry and icon if requested
+- Updates desktop database
 
-### Install section:
+### Exit Section
+- Provides installation summary
+- Offers to launch Cursor with `--no-sandbox` flag
+- Reports success or failure of installation
 
-1. Download the most recent version
+## Technical Notes
 
-2. kills all the cursors that are open. 
+### Dependencies
+- curl: For downloading files
+- libfuse2: Required for AppImage execution
+- FUSE group membership: For proper AppImage functionality
 
-3. installs the new version
+### File Locations
+- AppImage: `~/.local/bin/cursor.appimage`
+- Desktop Entry: `~/.local/share/applications/cursor.desktop`
+- Icon: `~/.local/share/icons/cursor.png`
 
-4. If the install was a new install, it will go to the new install section.
+### Important Flags
+- `--no-sandbox`: Required for running Cursor on some Linux systems
+- `%F`: Used in desktop entry to handle file opening
 
-### New install section:
+## Implementation Challenges and Solutions
 
-1. checks that dependencies are installed. 
-- if not installs them (fuse    )
+1. **Version Extraction**
+   - Challenge: GitHub repository structure changed
+   - Solution: Implemented robust JSON parsing with fallback to local files
 
-2. downloads the icon.
+2. **Process Management**
+   - Challenge: Need to safely kill running instances
+   - Solution: Added careful process detection and termination
 
-3. creates a desktop entry.
+3. **Sandbox Issues**
+   - Challenge: AppImage sandbox errors on some systems
+   - Solution: Added `--no-sandbox` flag to launch command
 
-4. goes to the exit section.
+4. **Desktop Integration**
+   - Challenge: Desktop entry permissions and database updates
+   - Solution: Added proper permissions and error handling
 
-### Exit section:
+## Usage
+```bash
+./install_cursor.sh
+```
 
-1. provide some info about what the script did
+The script will:
+1. Check current installation status
+2. Get latest version information
+3. Ask for permission to install/update
+4. Handle the installation process
+5. Set up desktop integration for new installs
+6. Offer to launch Cursor
 
-2. provide options to open cursor or exit the script
+## Future Improvements
+1. Add version comparison to prevent unnecessary updates
+2. Implement backup/restore functionality
+3. Add support for different installation locations
+4. Improve error handling for network issues
+5. Add support for different desktop environments
+
+
+
+
 
