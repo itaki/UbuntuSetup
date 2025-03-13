@@ -411,15 +411,23 @@ if [ ! -f "$APPIMAGE_PATH" ]; then
     IS_NEW_INSTALL=true
     echo "Will proceed with new installation."
 else
-    # Try to get current version
-    CURRENT_VERSION=$("$APPIMAGE_PATH" --no-sandbox --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+    # Try to get current version from running process
+    CURRENT_VERSION=$(ps aux | grep -i cursor | grep -v grep | grep -i "_version" | grep -o "_version=[0-9]*\.[0-9]*\.[0-9]*" | cut -d= -f2 | head -1)
     
     if [ -n "$CURRENT_VERSION" ]; then
         echo "Cursor version $CURRENT_VERSION is currently installed."
     else
-        echo "Cursor is installed but version could not be determined."
-        echo "Will proceed as if this is a new installation."
-        IS_NEW_INSTALL=true
+        # If no running process, try to start Cursor with --version flag
+        echo "No running Cursor process found. Trying to check version directly..."
+        CURRENT_VERSION=$("$APPIMAGE_PATH" --no-sandbox --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+        
+        if [ -n "$CURRENT_VERSION" ]; then
+            echo "Cursor version $CURRENT_VERSION is currently installed."
+        else
+            echo "Cursor is installed but version could not be determined."
+            echo "Will proceed as if this is a new installation."
+            IS_NEW_INSTALL=true
+        fi
     fi
 fi
 
