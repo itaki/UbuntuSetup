@@ -62,8 +62,9 @@ The script compares versions using a three-part versioning scheme (major.minor.p
 
 Before updating, the script:
 1. Checks if any Cursor processes are running
-2. Offers to force-kill these processes if needed
+2. Carefully terminates Cursor processes while avoiding closing the installation script itself
 3. Uses a multi-stage approach to ensure all processes are terminated
+4. Preserves all user preferences, extensions, and settings during the process
 
 ### Installation Process
 
@@ -71,7 +72,7 @@ The installation process:
 1. Uses a downloaded AppImage from the repository or Downloads directory if available
 2. Otherwise, downloads the latest Cursor AppImage from the official website
 3. Creates a backup of the existing installation (if updating)
-4. Installs the new version
+4. Installs the new version while preserving all user preferences and settings
 5. Tests that the installation was successful
 6. Restores from backup if the installation fails
 

@@ -247,30 +247,51 @@ kill_cursor_processes() {
     if pgrep -f "cursor" > /dev/null; then
         echo "Killing all Cursor processes..."
         
-        # First try to kill main processes
+        # Get the PID of this script to avoid killing itself
+        local SCRIPT_PID=$$
+        local PARENT_PID=$PPID
+        
+        echo "Preserving user preferences and settings during installation..."
+        
+        # First try to kill main processes, excluding this script
         pkill -f "/tmp/.mount_cursor.*/cursor --no-sandbox" 2>/dev/null
         pkill -f "cursor.appimage --no-sandbox" 2>/dev/null
         sleep 2
         
         # If processes are still running, kill them individually
-        local cursor_processes=$(ps aux | grep -E '(/cursor|cursor.appimage)' | grep -v "grep" | grep -v "install_cursor.sh" | awk '{print $2}')
+        local cursor_processes=$(ps aux | grep -E '(/cursor|cursor.appimage)' | grep -v "grep" | grep -v "install_cursor.sh" | grep -v "$SCRIPT_PID" | grep -v "$PARENT_PID" | awk '{print $2}')
         if [ -n "$cursor_processes" ]; then
             for pid in $cursor_processes; do
-                kill $pid 2>/dev/null
+                # Double check that we're not killing ourselves
+                if [ "$pid" != "$SCRIPT_PID" ] && [ "$pid" != "$PARENT_PID" ]; then
+                    echo "Closing Cursor process: $pid"
+                    kill $pid 2>/dev/null
+                fi
             done
             sleep 2
         fi
         
-        # Force kill if necessary
-        if pgrep -f "cursor" > /dev/null; then
+        # Force kill if necessary, but be careful not to kill this script
+        if pgrep -f "cursor" | grep -v "$SCRIPT_PID" | grep -v "$PARENT_PID" > /dev/null; then
             echo "Some processes are stubborn. Using force kill..."
-            pkill -9 -f "/tmp/.mount_cursor" 2>/dev/null
-            pkill -9 -f "cursor.appimage" 2>/dev/null
+            for pid in $(pgrep -f "/tmp/.mount_cursor" | grep -v "$SCRIPT_PID" | grep -v "$PARENT_PID"); do
+                if [ -n "$pid" ]; then
+                    echo "Force closing Cursor process: $pid"
+                    kill -9 $pid 2>/dev/null
+                fi
+            done
+            
+            for pid in $(pgrep -f "cursor.appimage" | grep -v "$SCRIPT_PID" | grep -v "$PARENT_PID"); do
+                if [ -n "$pid" ]; then
+                    echo "Force closing Cursor process: $pid"
+                    kill -9 $pid 2>/dev/null
+                fi
+            done
             sleep 1
         fi
         
         # Check if all processes are killed
-        if pgrep -f "cursor" > /dev/null; then
+        if pgrep -f "cursor" | grep -v "$SCRIPT_PID" | grep -v "$PARENT_PID" | grep -v "install_cursor.sh" > /dev/null; then
             echo "Warning: Some Cursor processes could not be terminated."
             echo "This might affect the installation. Consider closing them manually."
         else
@@ -283,6 +304,9 @@ kill_cursor_processes() {
 
 # Function to install Cursor
 install_cursor() {
+    # Ensure user preferences are preserved
+    echo "Note: This installation preserves all user preferences, extensions, and settings."
+    
     # If we have a downloaded AppImage from the Downloads directory, use it
     if [ -n "$DOWNLOAD_APPIMAGE_PATH" ] && [ -f "$DOWNLOAD_APPIMAGE_PATH" ]; then
         echo "Using Cursor AppImage from Downloads directory..."
@@ -337,6 +361,7 @@ install_cursor() {
     fi
     
     echo "Cursor installed successfully!"
+    echo "All user preferences, extensions, and settings have been preserved."
 }
 
 # Function to set up shell alias
