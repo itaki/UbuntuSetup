@@ -12,6 +12,7 @@ LOCAL_ICONS="$HOME/.local/share/icons"
 APPIMAGE_PATH="$LOCAL_BIN/cursor.appimage"
 ICON_PATH="$LOCAL_ICONS/cursor.png"
 DESKTOP_ENTRY_PATH="$LOCAL_APPS/cursor.desktop"
+DOWNLOAD_APPIMAGE_PATH=""
 IS_NEW_INSTALL=false
 
 # Create necessary directories
@@ -109,9 +110,77 @@ get_latest_version() {
         version=$(curl -s https://www.cursor.com/downloads | grep -oE 'Version \([0-9]+\.[0-9]+\)' | grep -oE '[0-9]+\.[0-9]+' | head -1)
     fi
     
-    # Use default if all else fails
+    # Use downloads directory if all else fails
     if [ -z "$version" ]; then
-        version="46.11.0"
+        echo "I can't find an online version of Cursor."
+        read -p "Look in Downloads directory instead? (y/n): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            echo "Checking Downloads directory for Cursor AppImages..."
+            local downloads_dir="$HOME/Downloads"
+            if [ -d "$downloads_dir" ]; then
+                # Find all cursor AppImages in Downloads directory
+                local cursor_files=$(find "$downloads_dir" -name "cursor*.appimage" -o -name "Cursor*.AppImage" -o -name "cursor*.AppImage" -o -name "Cursor*.appimage" 2>/dev/null)
+                
+                if [ -z "$cursor_files" ]; then
+                    echo "No Cursor AppImages found in Downloads directory."
+                    exit 1
+                fi
+                
+                # Extract version from each file and find the highest
+                local highest_version=""
+                local highest_file=""
+                
+                for file in $cursor_files; do
+                    echo "Found: $(basename "$file")"
+                    local file_version=""
+                    
+                    # Try to extract version from filename
+                    file_version=$(basename "$file" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+                    
+                    # If no version in filename, try to extract from file content
+                    if [ -z "$file_version" ]; then
+                        file_version=$(strings "$file" | grep -oE 'Cursor/[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d'/' -f2)
+                    fi
+                    
+                    if [ -n "$file_version" ]; then
+                        echo "  Version: $file_version"
+                        
+                        # Compare versions to find highest
+                        if [ -z "$highest_version" ]; then
+                            highest_version="$file_version"
+                            highest_file="$file"
+                        else
+                            local current_major=$(echo "$highest_version" | cut -d. -f1)
+                            local current_minor=$(echo "$highest_version" | cut -d. -f2)
+                            local file_major=$(echo "$file_version" | cut -d. -f1)
+                            local file_minor=$(echo "$file_version" | cut -d. -f2)
+                            
+                            if [ "$file_major" -gt "$current_major" ] || ([ "$file_major" -eq "$current_major" ] && [ "$file_minor" -gt "$current_minor" ]); then
+                                highest_version="$file_version"
+                                highest_file="$file"
+                            fi
+                        fi
+                    fi
+                done
+                
+                if [ -n "$highest_version" ]; then
+                    echo "Using highest version found: $highest_version (from $(basename "$highest_file"))"
+                    # Save the path to use during installation
+                    DOWNLOAD_APPIMAGE_PATH="$highest_file"
+                    version="$highest_version"
+                else
+                    echo "Could not determine version from any of the found files."
+                    exit 1
+                fi
+            else
+                echo "Downloads directory not found."
+                exit 1
+            fi
+        else
+            echo "Exiting as requested."
+            exit 0
+        fi
     fi
     
     echo "Latest Cursor version: $version"
@@ -182,25 +251,42 @@ kill_cursor_processes() {
 
 # Function to install Cursor
 install_cursor() {
-    echo "Downloading latest Cursor version..."
-    curl -L "$CURSOR_URL" -o /tmp/cursor.appimage || {
-        echo "Failed to download Cursor. Please check your internet connection."
-        exit 1
-    }
-    
-    # Make the downloaded file executable
-    chmod +x /tmp/cursor.appimage
-    
-    # Create backup if updating
-    if [ "$IS_NEW_INSTALL" = false ] && [ -f "$APPIMAGE_PATH" ]; then
-        echo "Creating backup of current installation..."
-        cp "$APPIMAGE_PATH" "${APPIMAGE_PATH}.backup"
+    # If we have a downloaded AppImage from the Downloads directory, use it
+    if [ -n "$DOWNLOAD_APPIMAGE_PATH" ] && [ -f "$DOWNLOAD_APPIMAGE_PATH" ]; then
+        echo "Using Cursor AppImage from Downloads directory..."
+        
+        # Create backup if updating
+        if [ "$IS_NEW_INSTALL" = false ] && [ -f "$APPIMAGE_PATH" ]; then
+            echo "Creating backup of current installation..."
+            cp "$APPIMAGE_PATH" "${APPIMAGE_PATH}.backup"
+        fi
+        
+        # Install from the downloaded file
+        echo "Installing Cursor..."
+        cp "$DOWNLOAD_APPIMAGE_PATH" "$APPIMAGE_PATH"
+        chmod +x "$APPIMAGE_PATH"
+    else
+        # Download from the internet
+        echo "Downloading latest Cursor version..."
+        curl -L "$CURSOR_URL" -o /tmp/cursor.appimage || {
+            echo "Failed to download Cursor. Please check your internet connection."
+            exit 1
+        }
+        
+        # Make the downloaded file executable
+        chmod +x /tmp/cursor.appimage
+        
+        # Create backup if updating
+        if [ "$IS_NEW_INSTALL" = false ] && [ -f "$APPIMAGE_PATH" ]; then
+            echo "Creating backup of current installation..."
+            cp "$APPIMAGE_PATH" "${APPIMAGE_PATH}.backup"
+        fi
+        
+        # Install the new version
+        echo "Installing Cursor..."
+        mv /tmp/cursor.appimage "$APPIMAGE_PATH"
+        chmod +x "$APPIMAGE_PATH"
     fi
-    
-    # Install the new version
-    echo "Installing Cursor..."
-    mv /tmp/cursor.appimage "$APPIMAGE_PATH"
-    chmod +x "$APPIMAGE_PATH"
     
     # Test the installation
     if ! "$APPIMAGE_PATH" --no-sandbox --version &> /dev/null; then

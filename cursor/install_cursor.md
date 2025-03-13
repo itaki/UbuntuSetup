@@ -26,7 +26,8 @@ The script uses multiple methods to detect the current and latest versions of Cu
 2. For the latest version:
    - Checks the Cursor website for version information
    - Falls back to the downloads page if needed
-   - Uses a default version (46.11) if all else fails
+   - If online version detection fails, offers to check the Downloads directory for Cursor AppImages
+   - Scans the Downloads directory for Cursor AppImages and selects the highest version available
 
 ### Process Management
 
@@ -38,11 +39,12 @@ Before updating, the script:
 ### Installation Process
 
 The installation process:
-1. Downloads the latest Cursor AppImage
-2. Creates a backup of the existing installation (if updating)
-3. Installs the new version
-4. Tests that the installation was successful
-5. Restores from backup if the installation fails
+1. Uses a downloaded AppImage from the Downloads directory if available
+2. Otherwise, downloads the latest Cursor AppImage from the official website
+3. Creates a backup of the existing installation (if updating)
+4. Installs the new version
+5. Tests that the installation was successful
+6. Restores from backup if the installation fails
 
 ### Desktop Integration
 
