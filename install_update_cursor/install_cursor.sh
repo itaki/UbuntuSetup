@@ -96,26 +96,51 @@ getCurrentVersion() {
     echo "$version"
 }
 
+# Function to remove Cursor autostart entries
+removeAutostart() {
+    echo "Removing Cursor autostart entries..."
+    rm -f "$HOME/.config/autostart/cursor-updater.desktop" 2>/dev/null
+    rm -f "$HOME/.config/autostart/cursor-apply-update.desktop" 2>/dev/null
+}
+
 # Function to check if Cursor is running and optionally kill it
 checkAndKillCursor() {
     local force_kill=$1
     local script_pid=$$
     
-    # Check if any Cursor processes are running (excluding this script)
-    if pgrep -f "cursor" | grep -v "$script_pid" | grep -v "install_cursor.sh" > /dev/null; then
+    # More precise detection of actual Cursor application processes
+    # Exclude grep, our script, and other non-application processes
+    local cursor_processes=$(ps aux | grep -E '(/cursor|cursor.appimage)' | grep -v "grep" | grep -v "install_cursor.sh" | grep -v "ps aux" | awk '{print $2}')
+    
+    if [ -n "$cursor_processes" ]; then
         if [ "$force_kill" = "true" ]; then
             echo "Killing all Cursor processes (except this installer)..."
-            # Kill all cursor processes except this script
-            for pid in $(pgrep -f "cursor" | grep -v "$script_pid" | grep -v "install_cursor.sh"); do
-                echo "Killing process $pid"
-                kill $pid 2>/dev/null
-            done
+            
+            # First try to kill the main Cursor process which should terminate children
+            pkill -f "/tmp/.mount_cursor.*/cursor --no-sandbox" 2>/dev/null
+            pkill -f "cursor.appimage --no-sandbox" 2>/dev/null
             sleep 2
             
+            # Get updated list of processes
+            cursor_processes=$(ps aux | grep -E '(/cursor|cursor.appimage)' | grep -v "grep" | grep -v "install_cursor.sh" | grep -v "ps aux" | awk '{print $2}')
+            
+            # If processes are still running, kill them individually
+            if [ -n "$cursor_processes" ]; then
+                echo "Killing remaining Cursor processes individually..."
+                for pid in $cursor_processes; do
+                    echo "Killing process $pid"
+                    kill $pid 2>/dev/null
+                done
+                sleep 2
+            fi
+            
+            # Get updated list again
+            cursor_processes=$(ps aux | grep -E '(/cursor|cursor.appimage)' | grep -v "grep" | grep -v "install_cursor.sh" | grep -v "ps aux" | awk '{print $2}')
+            
             # If processes are still running, use SIGKILL
-            if pgrep -f "cursor" | grep -v "$script_pid" | grep -v "install_cursor.sh" > /dev/null; then
+            if [ -n "$cursor_processes" ]; then
                 echo "Some Cursor processes are still running. Using force kill..."
-                for pid in $(pgrep -f "cursor" | grep -v "$script_pid" | grep -v "install_cursor.sh"); do
+                for pid in $cursor_processes; do
                     echo "Force killing process $pid"
                     kill -9 $pid 2>/dev/null
                 done
@@ -123,9 +148,11 @@ checkAndKillCursor() {
             fi
             
             # Final check
-            if pgrep -f "cursor" | grep -v "$script_pid" | grep -v "install_cursor.sh" > /dev/null; then
-                echo "ERROR: Unable to kill all Cursor processes. Please close Cursor manually."
-                return 1
+            cursor_processes=$(ps aux | grep -E '(/cursor|cursor.appimage)' | grep -v "grep" | grep -v "install_cursor.sh" | grep -v "ps aux" | awk '{print $2}')
+            if [ -n "$cursor_processes" ]; then
+                echo "WARNING: Some Cursor processes could not be killed."
+                echo "These processes may not affect the update, continuing anyway..."
+                return 0  # Continue anyway
             else
                 echo "All Cursor processes successfully terminated."
                 return 0
@@ -144,6 +171,8 @@ checkAndKillCursor() {
                 return 1
             fi
         fi
+    else
+        echo "No Cursor processes found running. Proceeding with installation/update."
     fi
     
     return 0
@@ -161,6 +190,9 @@ installCursor() {
 
     echo "Checking for dependencies..."
     checkDependencies
+
+    # Remove autostart entries
+    removeAutostart
 
     # Create necessary directories if they don't exist
     mkdir -p "$LOCAL_APPS" "$LOCAL_BIN" "$LOCAL_ICONS"

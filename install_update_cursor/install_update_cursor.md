@@ -20,12 +20,14 @@ The `install_cursor.sh` script now provides an interactive installation and upda
 4. It creates a backup of the existing installation before updating
 5. It restores the backup if the update fails
 6. It offers to safely terminate all Cursor processes if they're running
+7. It removes any autostart entries that might launch Cursor at startup
 
 This approach ensures that:
 - Users are aware of what version they're updating to
 - No data is lost during the update process
 - The update only proceeds with explicit user consent
 - Background processes are properly handled
+- Cursor doesn't automatically start at login (unless the user wants it to)
 
 ### URL Selection
 
@@ -75,12 +77,22 @@ The script includes robust process management to handle cases where:
 - Multiple Cursor processes are running
 - Background processes might not be visible to the user
 - Processes might be in different states (AppImage, mounted version, etc.)
+- Some processes might be resistant to termination
 
 The process management features:
-1. Detect all running Cursor processes
-2. Offer the user the option to force-kill these processes
-3. Use a two-stage termination approach (SIGTERM followed by SIGKILL if needed)
-4. Verify that all processes have been terminated before proceeding
+1. Use precise detection to identify only actual Cursor application processes
+2. Exclude grep commands and other non-application processes from detection
+3. Try multiple termination strategies (main process first, then children)
+4. Use a two-stage termination approach (SIGTERM followed by SIGKILL if needed)
+5. Continue with installation even if some non-critical processes can't be terminated
+6. Provide detailed feedback about which processes are being terminated
+
+### Autostart Management
+
+The script now handles autostart entries:
+1. It removes any Cursor-related autostart entries during installation/update
+2. This prevents Cursor from automatically starting at login
+3. It ensures that background update processes don't run without user knowledge
 
 ## Usage
 
@@ -145,6 +157,20 @@ We discovered that sometimes multiple Cursor processes could be running in the b
 1. Added robust process detection to find all Cursor-related processes
 2. Implemented a safe process termination system with user confirmation
 3. Added a force-kill option for stubborn processes
+4. Improved the detection algorithm to exclude non-application processes
+5. Made the script continue even if some non-critical processes can't be terminated
+
+### Issue: Cursor Starting Automatically at Login
+
+We found that Cursor update scripts were being added to autostart, causing:
+1. Cursor processes to run in the background without user knowledge
+2. Update attempts to happen automatically, sometimes causing issues
+3. Interference with manual update attempts
+
+To fix this, we:
+1. Added code to remove all Cursor-related autostart entries
+2. Made the installation process more explicit and user-controlled
+3. Eliminated background update processes that could cause conflicts
 
 ### Solution:
 
@@ -157,6 +183,9 @@ We discovered that sometimes multiple Cursor processes could be running in the b
 7. Added interactive confirmation for updates
 8. Implemented backup and restore functionality
 9. Added process management to handle multiple Cursor instances
+10. Removed autostart entries to prevent automatic background processes
+11. Improved process detection to be more precise and reliable
+12. Made the script more resilient to processes that can't be terminated
 
 ### Other Potential Issues
 
