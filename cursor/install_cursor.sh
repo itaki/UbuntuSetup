@@ -60,52 +60,21 @@ check_dependencies() {
     fi
 }
 
-# Function to get current version
-get_current_version() {
-    if [ ! -f "$APPIMAGE_PATH" ]; then
-        echo "Cursor is not currently installed."
-        IS_NEW_INSTALL=true
-        return 1
-    fi
-    
-    # Check if Cursor is running and get version from process
-    local version=""
-    
-    # Method: Check running processes for version information
-    version=$(ps aux | grep -i cursor | grep -v grep | grep -i version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-    
-    # If no running process, try to start Cursor with --version flag
-    if [ -z "$version" ]; then
-        echo "No running Cursor process found. Trying to check version directly..."
-        version=$("$APPIMAGE_PATH" --no-sandbox --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-    fi
-    
-    # Validate version format
-    if [ -n "$version" ]; then
-        echo "Current Cursor version: $version"
-        echo "$version"
-        return 0
-    else
-        echo "Could not determine current version."
-        # If we can't determine the version but the file exists, we'll assume it's installed
-        # but we don't know the version
-        return 1
-    fi
-}
-
 # Function to get latest version
 get_latest_version() {
+    echo "Checking Cursor website for latest version..."
     # Try to get version from Cursor website
     local version=$(curl -s https://cursor.so/ | grep -oE 'Version [0-9]+\.[0-9]+(\.[0-9]+)?' | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
     
     # Try downloads page if website fails
     if [ -z "$version" ]; then
+        echo "Checking Cursor downloads page..."
         version=$(curl -s https://www.cursor.com/downloads | grep -oE 'Version \([0-9]+\.[0-9]+\)' | grep -oE '[0-9]+\.[0-9]+' | head -1)
     fi
     
     # Use downloads directory or repository if all else fails
     if [ -z "$version" ]; then
-        echo "I can't find an online version of Cursor."
+        echo "Could not find version information online."
         read -p "Look in Downloads directory or repository instead? (y/n): " -n 1 -r
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
@@ -247,23 +216,23 @@ kill_cursor_processes() {
         echo "Preserving user preferences and settings during installation..."
         
         # First try to kill main processes, excluding this script
-        pkill -f "/tmp/.mount_cursor.*/cursor --no-sandbox" 2>/dev/null
-        pkill -f "cursor.appimage --no-sandbox" 2>/dev/null
-        sleep 2
-        
-        # If processes are still running, kill them individually
+            pkill -f "/tmp/.mount_cursor.*/cursor --no-sandbox" 2>/dev/null
+            pkill -f "cursor.appimage --no-sandbox" 2>/dev/null
+            sleep 2
+            
+            # If processes are still running, kill them individually
         local cursor_processes=$(ps aux | grep -E '(/cursor|cursor.appimage)' | grep -v "grep" | grep -v "install_cursor.sh" | grep -v "$SCRIPT_PID" | grep -v "$PARENT_PID" | awk '{print $2}')
-        if [ -n "$cursor_processes" ]; then
-            for pid in $cursor_processes; do
+            if [ -n "$cursor_processes" ]; then
+                for pid in $cursor_processes; do
                 # Double check that we're not killing ourselves
                 if [ "$pid" != "$SCRIPT_PID" ] && [ "$pid" != "$PARENT_PID" ]; then
                     echo "Closing Cursor process: $pid"
                     kill $pid 2>/dev/null
                 fi
-            done
-            sleep 2
-        fi
-        
+                done
+                sleep 2
+            fi
+            
         # Force kill if necessary, but be careful not to kill this script
         if pgrep -f "cursor" | grep -v "$SCRIPT_PID" | grep -v "$PARENT_PID" > /dev/null; then
             echo "Some processes are stubborn. Using force kill..."
@@ -279,10 +248,10 @@ kill_cursor_processes() {
                     echo "Force closing Cursor process: $pid"
                     kill -9 $pid 2>/dev/null
                 fi
-            done
-            sleep 1
-        fi
-        
+                done
+                sleep 1
+            fi
+            
         # Check if all processes are killed
         if pgrep -f "cursor" | grep -v "$SCRIPT_PID" | grep -v "$PARENT_PID" | grep -v "install_cursor.sh" > /dev/null; then
             echo "Warning: Some Cursor processes could not be terminated."
@@ -361,7 +330,7 @@ install_cursor() {
 setup_shell_alias() {
     local SHELL_NAME=$(basename "$SHELL")
     local RC_FILE=""
-    
+
     case "$SHELL_NAME" in
         bash)
             RC_FILE="$HOME/.bashrc"
@@ -378,7 +347,7 @@ setup_shell_alias() {
             return
             ;;
     esac
-    
+
     if [ -n "$RC_FILE" ]; then
         if [ "$SHELL_NAME" = "fish" ]; then
             if ! grep -q "function cursor" "$RC_FILE"; then
@@ -435,7 +404,27 @@ check_dependencies
 
 # Information section
 echo "=== Checking Versions ==="
-CURRENT_VERSION=$(get_current_version)
+
+# Check if Cursor is installed
+if [ ! -f "$APPIMAGE_PATH" ]; then
+    echo "Cursor is not currently installed."
+    IS_NEW_INSTALL=true
+    echo "Will proceed with new installation."
+else
+    # Try to get current version
+    CURRENT_VERSION=$("$APPIMAGE_PATH" --no-sandbox --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+    
+    if [ -n "$CURRENT_VERSION" ]; then
+        echo "Cursor version $CURRENT_VERSION is currently installed."
+    else
+        echo "Cursor is installed but version could not be determined."
+        echo "Will proceed as if this is a new installation."
+        IS_NEW_INSTALL=true
+    fi
+fi
+
+# Get latest version
+echo "Checking for latest version..."
 LATEST_VERSION=$(get_latest_version)
 
 # Checkpoint 1: Confirm installation or update
@@ -450,7 +439,6 @@ if [ "$IS_NEW_INSTALL" = true ]; then
     fi
 else
     echo
-    echo "Cursor version $CURRENT_VERSION is currently installed."
     if compare_versions "$CURRENT_VERSION" "$LATEST_VERSION"; then
         read -p "Update to Cursor version $LATEST_VERSION? (y/n): " -n 1 -r
         echo
@@ -514,7 +502,7 @@ MimeType=text/plain;inode/directory;
 StartupWMClass=Cursor
 StartupNotify=true
 EOL
-        
+
         chmod +x "$DESKTOP_ENTRY_PATH"
         
         # Update desktop database
@@ -566,10 +554,10 @@ StartupNotify=true
 EOL
         
         chmod +x "$DESKTOP_ENTRY_PATH"
-        
-        # Update desktop database
-        update-desktop-database "$LOCAL_APPS" 2>/dev/null || true
-        
+
+    # Update desktop database
+    update-desktop-database "$LOCAL_APPS" 2>/dev/null || true
+
         echo "Desktop entry updated successfully."
     fi
 fi
