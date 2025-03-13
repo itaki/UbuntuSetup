@@ -22,6 +22,7 @@ This script will guide you through the different solutions available.
 2. **Pinokio configuration**: Add environment variable to Pinokio's configuration
 3. **System-wide configuration**: Adds cuDNN library paths to the system's library search paths (RECOMMENDED - CONFIRMED WORKING)
 4. **Symbolic links**: Creates symbolic links to the cuDNN libraries in standard system locations
+5. **Enable public link**: Modifies CogStudio to create a public shareable link
 
 ### Documentation
 
@@ -35,5 +36,6 @@ For detailed information about the issue and solutions, see [cogstudio_fix.md](c
 - `pinokio_env_fix.sh`: Instructions for adding environment variable to Pinokio
 - `install_cudnn_config.sh`: Adds cuDNN library paths to the system's library search paths (CONFIRMED WORKING)
 - `create_cudnn_symlinks.sh`: Creates symbolic links to the cuDNN libraries in standard system locations
+- `enable_public_link.sh`: Modifies CogStudio to create a public shareable link
 - `cudnn-pinokio.conf`: Configuration file for the dynamic linker to find the cuDNN libraries
 - `cogstudio_fix.md`: Detailed documentation about the issue and solutions 

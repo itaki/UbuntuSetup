@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Cursor Updater
+Comment=Checks for and installs Cursor AI IDE updates
+Exec=/bin/bash -c "sleep 60 && $HOME/.local/bin/update_cursor.sh"
+Terminal=false
+Hidden=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true 

@@ -14,11 +14,12 @@ echo "1) Session-specific fix (sets environment variables for the current sessio
 echo "2) Add environment variable to Pinokio configuration"
 echo "3) System-wide configuration (RECOMMENDED - CONFIRMED WORKING, requires sudo)"
 echo "4) Create symbolic links in standard locations (requires sudo)"
-echo "5) View documentation"
+echo "5) Enable public link for CogStudio"
+echo "6) View documentation"
 echo "q) Quit"
 echo ""
 
-read -p "Enter your choice (1-5, q): " choice
+read -p "Enter your choice (1-6, q): " choice
 
 case $choice in
   1)
@@ -42,6 +43,10 @@ case $choice in
     sudo "$(dirname "$0")/create_cudnn_symlinks.sh"
     ;;
   5)
+    echo "Enabling public link for CogStudio..."
+    "$(dirname "$0")/enable_public_link.sh"
+    ;;
+  6)
     echo "Viewing documentation..."
     if command -v less &> /dev/null; then
       less "$(dirname "$0")/cogstudio_fix.md"

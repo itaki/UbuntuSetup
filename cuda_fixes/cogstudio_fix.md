@@ -78,6 +78,17 @@ sudo ~/UbuntuSetup/cuda_fixes/create_cudnn_symlinks.sh
 
 After running either of these scripts, restart Pinokio and try running CogStudio again.
 
+### Solution 4: Enable Public Link for CogStudio
+
+If you want to create a public link to share your CogStudio instance with others, you can use our script to modify the CogStudio code:
+
+```bash
+# Run the public link enablement script
+~/UbuntuSetup/cuda_fixes/enable_public_link.sh
+```
+
+This script modifies the CogStudio code to add the `share=True` parameter to the `launch()` function, which enables the creation of a public link. After running this script, you can run CogStudio as usual, and it will display a public URL that you can share with others.
+
 ## Technical Details
 
 The error occurs because the CUDA Deep Neural Network library (cuDNN) component `libcudnn_ops_infer.so.8` is not in the default library search path. This library is required for GPU-accelerated deep learning operations.
