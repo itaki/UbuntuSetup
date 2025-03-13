@@ -26,8 +26,17 @@ The script uses multiple methods to detect the current and latest versions of Cu
 2. For the latest version:
    - Checks the Cursor website for version information
    - Falls back to the downloads page if needed
-   - If online version detection fails, offers to check the Downloads directory for Cursor AppImages
-   - Scans the Downloads directory for Cursor AppImages and selects the highest version available
+   - If online version detection fails, offers to check both the repository and Downloads directory for Cursor AppImages
+   - Scans for files matching the Cursor AppImage naming pattern (e.g., `Cursor-0.46.11-ae378be9dc2f5f1a6a1a220c6e25f9f03c8d4e19.deb.glibc2.25-x86_64.appimage`)
+   - Extracts version information from filenames and selects the highest version available
+
+### Version Comparison
+
+The script compares versions using a three-part versioning scheme (major.minor.patch):
+1. First compares major version numbers
+2. If major versions are equal, compares minor version numbers
+3. If both major and minor versions are equal, compares patch version numbers
+4. Determines if an update is needed based on this comparison
 
 ### Process Management
 
@@ -39,7 +48,7 @@ Before updating, the script:
 ### Installation Process
 
 The installation process:
-1. Uses a downloaded AppImage from the Downloads directory if available
+1. Uses a downloaded AppImage from the repository or Downloads directory if available
 2. Otherwise, downloads the latest Cursor AppImage from the official website
 3. Creates a backup of the existing installation (if updating)
 4. Installs the new version

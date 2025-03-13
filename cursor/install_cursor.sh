@@ -110,71 +110,92 @@ get_latest_version() {
         version=$(curl -s https://www.cursor.com/downloads | grep -oE 'Version \([0-9]+\.[0-9]+\)' | grep -oE '[0-9]+\.[0-9]+' | head -1)
     fi
     
-    # Use downloads directory if all else fails
+    # Use downloads directory or repository if all else fails
     if [ -z "$version" ]; then
         echo "I can't find an online version of Cursor."
-        read -p "Look in Downloads directory instead? (y/n): " -n 1 -r
+        read -p "Look in Downloads directory or repository instead? (y/n): " -n 1 -r
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
+            # First check the repository (current directory and parent directories)
+            echo "Checking repository for Cursor AppImages..."
+            local repo_cursor_files=$(find "$(pwd)" -maxdepth 3 -name "Cursor-*.appimage" -o -name "Cursor-*.AppImage" 2>/dev/null)
+            
+            # Then check Downloads directory
             echo "Checking Downloads directory for Cursor AppImages..."
             local downloads_dir="$HOME/Downloads"
+            local downloads_cursor_files=""
             if [ -d "$downloads_dir" ]; then
-                # Find all cursor AppImages in Downloads directory
-                local cursor_files=$(find "$downloads_dir" -name "cursor*.appimage" -o -name "Cursor*.AppImage" -o -name "cursor*.AppImage" -o -name "Cursor*.appimage" 2>/dev/null)
+                downloads_cursor_files=$(find "$downloads_dir" -name "cursor*.appimage" -o -name "Cursor*.AppImage" -o -name "cursor*.AppImage" -o -name "Cursor*.appimage" -o -name "Cursor-*.appimage" -o -name "Cursor-*.AppImage" -o -name "Cursor-*-x86_64.appimage" 2>/dev/null)
+            fi
+            
+            # Combine results
+            local cursor_files="$repo_cursor_files $downloads_cursor_files"
+            
+            if [ -z "$cursor_files" ]; then
+                echo "No Cursor AppImages found in repository or Downloads directory."
+                exit 1
+            fi
+            
+            # Extract version from each file and find the highest
+            local highest_version=""
+            local highest_file=""
+            
+            for file in $cursor_files; do
+                echo "Found: $(basename "$file")"
+                local file_version=""
                 
-                if [ -z "$cursor_files" ]; then
-                    echo "No Cursor AppImages found in Downloads directory."
-                    exit 1
+                # Try to extract version from filename (Cursor-0.46.11-ae378be9dc2f5f1a6a1a220c6e25f9f03c8d4e19.deb.glibc2.25-x86_64.appimage)
+                file_version=$(basename "$file" | grep -oE 'Cursor-[0-9]+\.[0-9]+\.[0-9]+' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+                
+                # Try alternative filename pattern
+                if [ -z "$file_version" ]; then
+                    file_version=$(basename "$file" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
                 fi
                 
-                # Extract version from each file and find the highest
-                local highest_version=""
-                local highest_file=""
+                # If no version in filename, try to extract from file content
+                if [ -z "$file_version" ]; then
+                    file_version=$(strings "$file" | grep -oE 'Cursor/[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d'/' -f2)
+                fi
                 
-                for file in $cursor_files; do
-                    echo "Found: $(basename "$file")"
-                    local file_version=""
+                if [ -n "$file_version" ]; then
+                    echo "  Version: $file_version"
                     
-                    # Try to extract version from filename
-                    file_version=$(basename "$file" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
-                    
-                    # If no version in filename, try to extract from file content
-                    if [ -z "$file_version" ]; then
-                        file_version=$(strings "$file" | grep -oE 'Cursor/[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d'/' -f2)
-                    fi
-                    
-                    if [ -n "$file_version" ]; then
-                        echo "  Version: $file_version"
+                    # Compare versions to find highest
+                    if [ -z "$highest_version" ]; then
+                        highest_version="$file_version"
+                        highest_file="$file"
+                    else
+                        local current_major=$(echo "$highest_version" | cut -d. -f1)
+                        local current_minor=$(echo "$highest_version" | cut -d. -f2)
+                        local current_patch=$(echo "$highest_version" | cut -d. -f3 | grep -oE '[0-9]+' | head -1)
+                        local file_major=$(echo "$file_version" | cut -d. -f1)
+                        local file_minor=$(echo "$file_version" | cut -d. -f2)
+                        local file_patch=$(echo "$file_version" | cut -d. -f3 | grep -oE '[0-9]+' | head -1)
                         
-                        # Compare versions to find highest
-                        if [ -z "$highest_version" ]; then
+                        # Compare major version
+                        if [ "$file_major" -gt "$current_major" ]; then
                             highest_version="$file_version"
                             highest_file="$file"
-                        else
-                            local current_major=$(echo "$highest_version" | cut -d. -f1)
-                            local current_minor=$(echo "$highest_version" | cut -d. -f2)
-                            local file_major=$(echo "$file_version" | cut -d. -f1)
-                            local file_minor=$(echo "$file_version" | cut -d. -f2)
-                            
-                            if [ "$file_major" -gt "$current_major" ] || ([ "$file_major" -eq "$current_major" ] && [ "$file_minor" -gt "$current_minor" ]); then
-                                highest_version="$file_version"
-                                highest_file="$file"
-                            fi
+                        # If major versions are equal, compare minor versions
+                        elif [ "$file_major" -eq "$current_major" ] && [ "$file_minor" -gt "$current_minor" ]; then
+                            highest_version="$file_version"
+                            highest_file="$file"
+                        # If major and minor versions are equal, compare patch versions
+                        elif [ "$file_major" -eq "$current_major" ] && [ "$file_minor" -eq "$current_minor" ] && [ -n "$file_patch" ] && [ -n "$current_patch" ] && [ "$file_patch" -gt "$current_patch" ]; then
+                            highest_version="$file_version"
+                            highest_file="$file"
                         fi
                     fi
-                done
-                
-                if [ -n "$highest_version" ]; then
-                    echo "Using highest version found: $highest_version (from $(basename "$highest_file"))"
-                    # Save the path to use during installation
-                    DOWNLOAD_APPIMAGE_PATH="$highest_file"
-                    version="$highest_version"
-                else
-                    echo "Could not determine version from any of the found files."
-                    exit 1
                 fi
+            done
+            
+            if [ -n "$highest_version" ]; then
+                echo "Using highest version found: $highest_version (from $(basename "$highest_file"))"
+                # Save the path to use during installation
+                DOWNLOAD_APPIMAGE_PATH="$highest_file"
+                version="$highest_version"
             else
-                echo "Downloads directory not found."
+                echo "Could not determine version from any of the found files."
                 exit 1
             fi
         else
@@ -198,10 +219,21 @@ compare_versions() {
     
     local current_major=$(echo "$current_version" | cut -d. -f1)
     local current_minor=$(echo "$current_version" | cut -d. -f2)
+    local current_patch=$(echo "$current_version" | cut -d. -f3 | grep -oE '[0-9]+' | head -1)
     local latest_major=$(echo "$latest_version" | cut -d. -f1)
     local latest_minor=$(echo "$latest_version" | cut -d. -f2)
+    local latest_patch=$(echo "$latest_version" | cut -d. -f3 | grep -oE '[0-9]+' | head -1)
     
-    if [ "$latest_major" -gt "$current_major" ] || ([ "$latest_major" -eq "$current_major" ] && [ "$latest_minor" -gt "$current_minor" ]); then
+    # Compare major version
+    if [ "$latest_major" -gt "$current_major" ]; then
+        echo "A newer version is available."
+        return 0  # Update needed
+    # If major versions are equal, compare minor versions
+    elif [ "$latest_major" -eq "$current_major" ] && [ "$latest_minor" -gt "$current_minor" ]; then
+        echo "A newer version is available."
+        return 0  # Update needed
+    # If major and minor versions are equal, compare patch versions if available
+    elif [ "$latest_major" -eq "$current_major" ] && [ "$latest_minor" -eq "$current_minor" ] && [ -n "$latest_patch" ] && [ -n "$current_patch" ] && [ "$latest_patch" -gt "$current_patch" ]; then
         echo "A newer version is available."
         return 0  # Update needed
     else
