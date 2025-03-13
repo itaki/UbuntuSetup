@@ -1,6 +1,24 @@
 #!/bin/bash
 
-checkDependencies() {
+# Cursor Installation Script
+# This script checks for, downloads, and installs the latest version of Cursor AI IDE
+
+# Define paths and URLs
+CURSOR_URL="https://cursor.so/resources/linux/cursor.appimage"
+ICON_URL="https://miro.medium.com/v2/resize:fit:700/1*YLg8VpqXaTyRHJoStnMuog.png"
+LOCAL_BIN="$HOME/.local/bin"
+LOCAL_APPS="$HOME/.local/share/applications"
+LOCAL_ICONS="$HOME/.local/share/icons"
+APPIMAGE_PATH="$LOCAL_BIN/cursor.appimage"
+ICON_PATH="$LOCAL_ICONS/cursor.png"
+DESKTOP_ENTRY_PATH="$LOCAL_APPS/cursor.desktop"
+IS_NEW_INSTALL=false
+
+# Create necessary directories
+mkdir -p "$LOCAL_BIN" "$LOCAL_APPS" "$LOCAL_ICONS"
+
+# Function to check dependencies
+check_dependencies() {
     local missing_deps=()
     
     # Check for curl
@@ -8,12 +26,12 @@ checkDependencies() {
         missing_deps+=("curl")
     fi
     
-    # Check specifically for libfuse2
+    # Check for libfuse2
     if ! ldconfig -p | grep -q libfuse.so.2; then
         missing_deps+=("libfuse2")
     fi
     
-    # If there are missing dependencies, install them
+    # Install missing dependencies
     if [ ${#missing_deps[@]} -ne 0 ]; then
         echo "Installing missing dependencies: ${missing_deps[*]}"
         sudo apt-get update
@@ -41,255 +59,183 @@ checkDependencies() {
     fi
 }
 
-# Function to get the latest version from the Cursor website
-getLatestVersion() {
-    # Try to get the version from the Cursor website
+# Function to get current version
+get_current_version() {
+    if [ ! -f "$APPIMAGE_PATH" ]; then
+        echo "Cursor is not currently installed."
+        IS_NEW_INSTALL=true
+        return 1
+    fi
+    
+    # Try to get version from AppImage
+    local version=""
+    
+    # Method 1: Run with --version flag
+    version=$("$APPIMAGE_PATH" --no-sandbox --version 2>/dev/null | grep -oE '(4[0-9]+|5[0-9]+)\.[0-9]+(\.[0-9]+)?' | head -1)
+    
+    # Method 2: Extract from AppImage strings
+    if [ -z "$version" ]; then
+        version=$(strings "$APPIMAGE_PATH" | grep -oE 'Cursor/[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d'/' -f2)
+    fi
+    
+    # Method 3: Look for version in package.json
+    if [ -z "$version" ]; then
+        version=$(strings "$APPIMAGE_PATH" | grep -A5 '"version":' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+    fi
+    
+    # Validate version format
+    if [ -n "$version" ]; then
+        local major=$(echo "$version" | cut -d. -f1)
+        if [ "$major" -lt 40 ] || [ "$major" -gt 60 ]; then
+            echo "Unknown version detected."
+            return 1
+        fi
+        echo "Current Cursor version: $version"
+        echo "$version"
+        return 0
+    else
+        echo "Could not determine current version."
+        return 1
+    fi
+}
+
+# Function to get latest version
+get_latest_version() {
+    # Try to get version from Cursor website
     local version=$(curl -s https://cursor.so/ | grep -oE 'Version [0-9]+\.[0-9]+(\.[0-9]+)?' | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
     
-    # If that fails, try the downloads page
+    # Try downloads page if website fails
     if [ -z "$version" ]; then
         version=$(curl -s https://www.cursor.com/downloads | grep -oE 'Version \([0-9]+\.[0-9]+\)' | grep -oE '[0-9]+\.[0-9]+' | head -1)
     fi
     
-    # If we still don't have a version, use a default
+    # Use default if all else fails
     if [ -z "$version" ]; then
-        version="46.11"
+        version="46.11.0"
     fi
     
+    echo "Latest Cursor version: $version"
     echo "$version"
 }
 
-# Function to get the current installed version
-getCurrentVersion() {
-    local appimage_path="$1"
+# Function to compare versions
+compare_versions() {
+    local current_version="$1"
+    local latest_version="$2"
     
-    # Check if the file exists
-    if [ ! -f "$appimage_path" ]; then
-        echo "Not installed"
-        return
+    if [ -z "$current_version" ]; then
+        return 0  # No current version, need to install
     fi
     
-    # Try to get the version by running the AppImage
-    local version=$("$appimage_path" --no-sandbox --version 2>/dev/null | grep -oE '(4[0-9]+|5[0-9]+)\.[0-9]+(\.[0-9]+)?' | head -1)
+    local current_major=$(echo "$current_version" | cut -d. -f1)
+    local current_minor=$(echo "$current_version" | cut -d. -f2)
+    local latest_major=$(echo "$latest_version" | cut -d. -f1)
+    local latest_minor=$(echo "$latest_version" | cut -d. -f2)
     
-    # If that fails, try extracting from the AppImage itself
-    if [ -z "$version" ]; then
-        version=$(strings "$appimage_path" | grep -oE 'Cursor/[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d'/' -f2)
-    fi
-    
-    # If we still don't have a version, try one more approach
-    if [ -z "$version" ]; then
-        version=$(strings "$appimage_path" | grep -A5 '"version":' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-    fi
-    
-    # Validate that the version looks like a Cursor version (currently in the 40s or 50s)
-    if [ -n "$version" ]; then
-        local major=$(echo "$version" | cut -d. -f1)
-        if [ "$major" -lt 40 ] || [ "$major" -gt 60 ]; then
-            # This doesn't look like a valid Cursor version
-            version="Unknown"
-        fi
+    if [ "$latest_major" -gt "$current_major" ] || ([ "$latest_major" -eq "$current_major" ] && [ "$latest_minor" -gt "$current_minor" ]); then
+        echo "A newer version is available."
+        return 0  # Update needed
     else
-        version="Unknown"
+        echo "You already have the latest version."
+        return 1  # No update needed
     fi
-    
-    echo "$version"
 }
 
-# Function to remove Cursor autostart entries
-removeAutostart() {
-    echo "Removing Cursor autostart entries..."
-    rm -f "$HOME/.config/autostart/cursor-updater.desktop" 2>/dev/null
-    rm -f "$HOME/.config/autostart/cursor-apply-update.desktop" 2>/dev/null
-}
-
-# Function to check if Cursor is running and optionally kill it
-checkAndKillCursor() {
-    local force_kill=$1
-    local script_pid=$$
-    
-    # More precise detection of actual Cursor application processes
-    # Exclude grep, our script, and other non-application processes
-    local cursor_processes=$(ps aux | grep -E '(/cursor|cursor.appimage)' | grep -v "grep" | grep -v "install_cursor.sh" | grep -v "ps aux" | awk '{print $2}')
-    
-    if [ -n "$cursor_processes" ]; then
-        if [ "$force_kill" = "true" ]; then
-            echo "Killing all Cursor processes (except this installer)..."
-            
-            # First try to kill the main Cursor process which should terminate children
-            pkill -f "/tmp/.mount_cursor.*/cursor --no-sandbox" 2>/dev/null
-            pkill -f "cursor.appimage --no-sandbox" 2>/dev/null
+# Function to kill Cursor processes
+kill_cursor_processes() {
+    if pgrep -f "cursor" > /dev/null; then
+        echo "Killing all Cursor processes..."
+        
+        # First try to kill main processes
+        pkill -f "/tmp/.mount_cursor.*/cursor --no-sandbox" 2>/dev/null
+        pkill -f "cursor.appimage --no-sandbox" 2>/dev/null
+        sleep 2
+        
+        # If processes are still running, kill them individually
+        local cursor_processes=$(ps aux | grep -E '(/cursor|cursor.appimage)' | grep -v "grep" | grep -v "install_cursor.sh" | awk '{print $2}')
+        if [ -n "$cursor_processes" ]; then
+            for pid in $cursor_processes; do
+                kill $pid 2>/dev/null
+            done
             sleep 2
-            
-            # Get updated list of processes
-            cursor_processes=$(ps aux | grep -E '(/cursor|cursor.appimage)' | grep -v "grep" | grep -v "install_cursor.sh" | grep -v "ps aux" | awk '{print $2}')
-            
-            # If processes are still running, kill them individually
-            if [ -n "$cursor_processes" ]; then
-                echo "Killing remaining Cursor processes individually..."
-                for pid in $cursor_processes; do
-                    echo "Killing process $pid"
-                    kill $pid 2>/dev/null
-                done
-                sleep 2
-            fi
-            
-            # Get updated list again
-            cursor_processes=$(ps aux | grep -E '(/cursor|cursor.appimage)' | grep -v "grep" | grep -v "install_cursor.sh" | grep -v "ps aux" | awk '{print $2}')
-            
-            # If processes are still running, use SIGKILL
-            if [ -n "$cursor_processes" ]; then
-                echo "Some Cursor processes are still running. Using force kill..."
-                for pid in $cursor_processes; do
-                    echo "Force killing process $pid"
-                    kill -9 $pid 2>/dev/null
-                done
-                sleep 1
-            fi
-            
-            # Final check
-            cursor_processes=$(ps aux | grep -E '(/cursor|cursor.appimage)' | grep -v "grep" | grep -v "install_cursor.sh" | grep -v "ps aux" | awk '{print $2}')
-            if [ -n "$cursor_processes" ]; then
-                echo "WARNING: Some Cursor processes could not be killed."
-                echo "These processes may not affect the update, continuing anyway..."
-                return 0  # Continue anyway
-            else
-                echo "All Cursor processes successfully terminated."
-                return 0
-            fi
+        fi
+        
+        # Force kill if necessary
+        if pgrep -f "cursor" > /dev/null; then
+            echo "Some processes are stubborn. Using force kill..."
+            pkill -9 -f "/tmp/.mount_cursor" 2>/dev/null
+            pkill -9 -f "cursor.appimage" 2>/dev/null
+            sleep 1
+        fi
+        
+        # Check if all processes are killed
+        if pgrep -f "cursor" > /dev/null; then
+            echo "Warning: Some Cursor processes could not be terminated."
+            echo "This might affect the installation. Consider closing them manually."
         else
-            echo "Cursor is currently running."
-            echo "Please close all Cursor windows and processes before updating."
-            echo "Alternatively, you can force-kill all Cursor processes."
-            read -p "Do you want to force-kill all Cursor processes? (y/n): " -n 1 -r
-            echo
-            if [[ $REPLY =~ ^[Yy]$ ]]; then
-                checkAndKillCursor "true"
-                return $?
-            else
-                echo "Update canceled. Please close Cursor manually and try again."
-                return 1
-            fi
+            echo "All Cursor processes successfully terminated."
         fi
     else
-        echo "No Cursor processes found running. Proceeding with installation/update."
+        echo "No Cursor processes found running."
     fi
-    
-    return 0
 }
 
-installCursor() {
-    local CURSOR_URL="https://cursor.so/resources/linux/cursor.appimage"
-    local ICON_URL="https://miro.medium.com/v2/resize:fit:700/1*YLg8VpqXaTyRHJoStnMuog.png"
-    local LOCAL_APPS="$HOME/.local/share/applications"
-    local LOCAL_BIN="$HOME/.local/bin"
-    local LOCAL_ICONS="$HOME/.local/share/icons"
-    local APPIMAGE_PATH="$LOCAL_BIN/cursor.appimage"
-    local ICON_PATH="$LOCAL_ICONS/cursor.png"
-    local DESKTOP_ENTRY_PATH="$LOCAL_APPS/cursor.desktop"
-
-    echo "Checking for dependencies..."
-    checkDependencies
-
-    # Remove autostart entries
-    removeAutostart
-
-    # Create necessary directories if they don't exist
-    mkdir -p "$LOCAL_APPS" "$LOCAL_BIN" "$LOCAL_ICONS"
-
-    # Check for Cursor process and offer to kill it if running
-    if ! checkAndKillCursor "false"; then
-        exit 1
-    fi
-
-    # Get the latest version
-    local LATEST_VERSION=$(getLatestVersion)
-    
-    # Check if Cursor is already installed
-    if [ -f "$APPIMAGE_PATH" ]; then
-        local CURRENT_VERSION=$(getCurrentVersion "$APPIMAGE_PATH")
-        
-        if [ "$CURRENT_VERSION" = "Unknown" ]; then
-            echo "Current Cursor version: Unknown"
-        else
-            echo "Current Cursor version: $CURRENT_VERSION"
-        fi
-        
-        echo "Latest Cursor version: $LATEST_VERSION"
-        
-        # Ask for confirmation before updating
-        read -p "Do you want to update Cursor to version $LATEST_VERSION? (y/n): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            echo "Update canceled."
-            exit 0
-        fi
-        
-        echo "Creating backup of current Cursor installation..."
-        cp "$APPIMAGE_PATH" "${APPIMAGE_PATH}.backup"
-    else
-        echo "Cursor is not currently installed."
-        echo "Latest Cursor version: $LATEST_VERSION"
-        
-        # Ask for confirmation before installing
-        read -p "Do you want to install Cursor version $LATEST_VERSION? (y/n): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            echo "Installation canceled."
-            exit 0
-        fi
-    fi
-
-    # Detect the user's shell
-    local SHELL_NAME=$(basename "$SHELL")
-    local RC_FILE=""
-
-    case "$SHELL_NAME" in
-        bash)
-            RC_FILE="$HOME/.bashrc"
-            ;;
-        zsh)
-            RC_FILE="$HOME/.zshrc"
-            ;;
-        fish)
-            RC_FILE="$HOME/.config/fish/config.fish"
-            ;;
-        *)
-            echo "Unsupported shell: $SHELL_NAME"
-            echo "Please manually add the alias to your shell configuration file."
-            ;;
-    esac
-
-    # Download AppImage and Icon
-    echo "Downloading Cursor AppImage..."
-    curl -L "$CURSOR_URL" -o /tmp/cursor.appimage || { 
-        echo "Failed to download AppImage."
-        if [ -f "${APPIMAGE_PATH}.backup" ]; then
-            echo "Restoring backup..."
-            mv "${APPIMAGE_PATH}.backup" "$APPIMAGE_PATH"
-        fi
+# Function to install Cursor
+install_cursor() {
+    echo "Downloading latest Cursor version..."
+    curl -L "$CURSOR_URL" -o /tmp/cursor.appimage || {
+        echo "Failed to download Cursor. Please check your internet connection."
         exit 1
     }
-
-    # Download icon if it doesn't exist
-    if [ ! -f "$ICON_PATH" ]; then
-        echo "Downloading Cursor icon..."
-        curl -L "$ICON_URL" -o /tmp/cursor.png || { echo "Failed to download icon."; }
-        
-        if [ -f "/tmp/cursor.png" ]; then
-            mv /tmp/cursor.png "$ICON_PATH"
-        fi
+    
+    # Make the downloaded file executable
+    chmod +x /tmp/cursor.appimage
+    
+    # Create backup if updating
+    if [ "$IS_NEW_INSTALL" = false ] && [ -f "$APPIMAGE_PATH" ]; then
+        echo "Creating backup of current installation..."
+        cp "$APPIMAGE_PATH" "${APPIMAGE_PATH}.backup"
     fi
-
-    # Move to final destination
-    echo "Installing Cursor files..."
+    
+    # Install the new version
+    echo "Installing Cursor..."
     mv /tmp/cursor.appimage "$APPIMAGE_PATH"
     chmod +x "$APPIMAGE_PATH"
+    
+    # Test the installation
+    if ! "$APPIMAGE_PATH" --no-sandbox --version &> /dev/null; then
+        echo "Installation test failed."
+        if [ -f "${APPIMAGE_PATH}.backup" ]; then
+            echo "Restoring from backup..."
+            mv "${APPIMAGE_PATH}.backup" "$APPIMAGE_PATH"
+            echo "Restored previous version."
+        fi
+        exit 1
+    fi
+    
+    # Remove backup if test was successful
+    if [ -f "${APPIMAGE_PATH}.backup" ]; then
+        rm "${APPIMAGE_PATH}.backup"
+    fi
+    
+    echo "Cursor installed successfully!"
+}
 
-    # Create a .desktop entry if it doesn't exist
-    if [ ! -f "$DESKTOP_ENTRY_PATH" ]; then
-        echo "Creating .desktop entry..."
-        cat > "$DESKTOP_ENTRY_PATH" <<EOL
+# Function to set up new installation
+setup_new_installation() {
+    # Download icon
+    echo "Downloading Cursor icon..."
+    curl -L "$ICON_URL" -o /tmp/cursor.png || {
+        echo "Failed to download icon. Using default icon."
+    }
+    
+    if [ -f "/tmp/cursor.png" ]; then
+        mv /tmp/cursor.png "$ICON_PATH"
+    fi
+    
+    # Create desktop entry
+    echo "Creating desktop entry..."
+    cat > "$DESKTOP_ENTRY_PATH" <<EOL
 [Desktop Entry]
 Version=1.0
 Name=Cursor AI IDE
@@ -303,66 +249,124 @@ MimeType=text/plain;inode/directory;
 StartupWMClass=Cursor
 StartupNotify=true
 EOL
+    
+    chmod +x "$DESKTOP_ENTRY_PATH"
+    
+    # Update desktop database
+    update-desktop-database "$LOCAL_APPS" 2>/dev/null || true
+    
+    # Add shell alias
+    setup_shell_alias
+}
 
-        chmod +x "$DESKTOP_ENTRY_PATH"
-    fi
-
-    # Add alias to the appropriate RC file if it doesn't exist
+# Function to set up shell alias
+setup_shell_alias() {
+    local SHELL_NAME=$(basename "$SHELL")
+    local RC_FILE=""
+    
+    case "$SHELL_NAME" in
+        bash)
+            RC_FILE="$HOME/.bashrc"
+            ;;
+        zsh)
+            RC_FILE="$HOME/.zshrc"
+            ;;
+        fish)
+            RC_FILE="$HOME/.config/fish/config.fish"
+            ;;
+        *)
+            echo "Unsupported shell: $SHELL_NAME"
+            echo "Please manually add an alias for Cursor."
+            return
+            ;;
+    esac
+    
     if [ -n "$RC_FILE" ]; then
         if [ "$SHELL_NAME" = "fish" ]; then
-            # Fish shell uses a different syntax for functions
             if ! grep -q "function cursor" "$RC_FILE"; then
-                echo "Adding cursor alias to $RC_FILE..."
-                echo "function cursor" >> "$RC_FILE"
-                echo "    $APPIMAGE_PATH --no-sandbox \$argv > /dev/null 2>&1 & disown" >> "$RC_FILE"
-                echo "end" >> "$RC_FILE"
+                echo "Adding cursor function to $RC_FILE..."
+                cat >> "$RC_FILE" <<EOL
+
+# Cursor function
+function cursor
+    $APPIMAGE_PATH --no-sandbox \$argv > /dev/null 2>&1 & disown
+end
+EOL
             fi
         else
             if ! grep -q "function cursor" "$RC_FILE"; then
-                echo "Adding cursor alias to $RC_FILE..."
+                echo "Adding cursor function to $RC_FILE..."
                 cat >> "$RC_FILE" <<EOL
 
-# Cursor alias
+# Cursor function
 function cursor() {
-    $APPIMAGE_PATH --no-sandbox "\${@}" > /dev/null 2>&1 & disown
+    $APPIMAGE_PATH --no-sandbox "\$@" > /dev/null 2>&1 & disown
 }
 EOL
             fi
         fi
-    fi
-
-    # Update desktop database
-    update-desktop-database "$LOCAL_APPS" 2>/dev/null || true
-
-    # Test the AppImage
-    echo "Testing Cursor AppImage..."
-    if ! "$APPIMAGE_PATH" --no-sandbox --version &> /dev/null; then
-        echo "Warning: Cursor AppImage test failed. Please check your FUSE setup."
-        echo "You may need to log out and log back in for group changes to take effect."
         
-        if [ -f "${APPIMAGE_PATH}.backup" ]; then
-            echo "Restoring backup..."
-            mv "${APPIMAGE_PATH}.backup" "$APPIMAGE_PATH"
-            echo "Backup restored."
-        fi
-    else
-        echo "Cursor $(getCurrentVersion "$APPIMAGE_PATH") installed successfully!"
-        
-        # Remove backup if test was successful
-        if [ -f "${APPIMAGE_PATH}.backup" ]; then
-            rm "${APPIMAGE_PATH}.backup"
-        fi
+        echo "Shell alias added. You can now use 'cursor' command in terminal."
+        echo "To activate the alias in this session, run: source $RC_FILE"
     fi
-
-    # Inform the user to reload the shell if needed
-    if [ -n "$RC_FILE" ] && ! type cursor &>/dev/null; then
-        echo "To use the 'cursor' command, please restart your terminal or run:"
-        echo "    source $RC_FILE"
-    fi
-
-    echo "Cursor AI IDE installation complete. You can find it in your application menu."
-    echo "If the icon doesn't appear immediately, try logging out and back in,"
-    echo "or running: gtk-update-icon-cache -f -t ~/.local/share/icons"
 }
 
-installCursor
+# Function to show exit options
+show_exit_options() {
+    echo
+    echo "Cursor AI IDE is ready to use!"
+    echo "You can find it in your application menu or run it from terminal with 'cursor' command."
+    echo
+    read -p "Would you like to open Cursor now? (y/n): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo "Starting Cursor..."
+        "$APPIMAGE_PATH" --no-sandbox &
+    else
+        echo "You can start Cursor later from your application menu or by typing 'cursor' in terminal."
+    fi
+}
+
+# Main script execution starts here
+
+echo "=== Cursor AI IDE Installer ==="
+echo
+
+# Check dependencies
+check_dependencies
+
+# Information section
+echo "=== Checking Versions ==="
+CURRENT_VERSION=$(get_current_version)
+LATEST_VERSION=$(get_latest_version)
+
+if compare_versions "$CURRENT_VERSION" "$LATEST_VERSION"; then
+    # Install section
+    echo
+    echo "=== Installing Cursor ==="
+    
+    # Kill any running Cursor processes
+    kill_cursor_processes
+    
+    # Install Cursor
+    install_cursor
+    
+    # New install section (if applicable)
+    if [ "$IS_NEW_INSTALL" = true ]; then
+        echo
+        echo "=== Setting Up New Installation ==="
+        setup_new_installation
+    fi
+    
+    # Exit section
+    echo
+    echo "=== Installation Complete ==="
+    show_exit_options
+else
+    # Exit section (no update needed)
+    echo
+    echo "=== No Update Required ==="
+    show_exit_options
+fi
+
+exit 0
