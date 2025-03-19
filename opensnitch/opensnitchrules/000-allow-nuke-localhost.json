@@ -1,0 +1,30 @@
+{
+  "created": "2024-10-12T12:00:00+00:00",
+  "updated": "2024-10-12T12:00:00+00:00",
+  "name": "000-allow-nuke-localhost",
+  "enabled": true,
+  "precedence": true,
+  "action": "allow",
+  "duration": "always",
+  "operator": {
+    "type": "list",
+    "operand": "list",
+    "data": "[{\"type\": \"regexp\", \"operand\": \"process.path\", \"sensitive\": false, \"data\": \"^/usr/local/Nuke.*\"}, {\"type\": \"regexp\", \"operand\": \"dest.ip\", \"sensitive\": false, \"data\": \"^(127\\\\.0\\\\.0\\\\.1|::1)$\"}]",
+    "list": [
+      {
+        "type": "regexp",
+        "operand": "process.path",
+        "sensitive": false,
+        "data": "^/usr/local/Nuke.*",
+        "list": null
+      },
+      {
+        "type": "regexp",
+        "operand": "dest.ip",
+        "sensitive": false,
+        "data": "^(127\\.0\\.0\\.1|::1)$",
+        "list": null
+      }
+    ]
+  }
+} 

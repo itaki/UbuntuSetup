@@ -4,11 +4,17 @@ OBJECTIVE: To create and implement scripts to do setup and actually do the setup
 
 The project is split into stages. Each stage has a corresponding directory. That directory contains the .sh file and a companion .md file and may have some other supporting files. These directories are not in order of completion.
 
+do not create .sh files for simple fixes working through problems. It doesn't make sense to write a script and then run it when we should just run the command to work on the fix. Only create .sh files for large scale problems we are working on. 
+
 The .md file should explain what the .sh file does and why it's written that way. This will include things like failures that we might have encountered and how we overcame them. This is so that we can optimize and not repeat the same mistakes.
 
-When the stage is complete, we will test the setup and you will say "it works". Then we will complete the following tasks:
+Do not update the documentation files or push the the repository until the stage is complete.
+
+A stage will be considered complete when we have successfully run the scripts and the setup is working. You should ask me to test the setup and I will say "it works". Then we will complete the following tasks:
 
 Modify the .sh and .md files to reflect the latest changes.
+
+When installing applications, always first check the downloads directory to see if I've already downloaded the app before downloading it. 
 
 Make sure NOT to include in the .sh file:
 - attempts that did not work.

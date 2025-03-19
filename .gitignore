@@ -1,1 +1,79 @@
-miniconda.sh
+# Application downloads and installers
+*.deb
+*.run
+*.tgz
+*.tar.gz
+*.zip
+*.rar
+*.7z
+*.iso
+*.dmg
+*.appimage
+*.sh
+!install_scripts/*.sh
+
+# Log files
+*.log
+logs/
+*.dlog
+journalctl-*.log
+*.journal
+
+# System-specific files
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Cache and temporary files
+.cache/
+*.cache
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Large binary files
+*.pdf
+*.psd
+*.ai
+*.eps
+*.mov
+*.mp4
+*.avi
+*.mkv
+*.iso
+*.img
+*.dmg
+*.vhd
+*.vhdx
+
+# Personal configuration files
+*.key
+*.pem
+*.crt
+*.csr
+*.p12
+*.pfx
+*.env
+*.env.local
+*.env.*.local
+
+# IDE and editor files
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+.cursorrules
+.cursorignore
+
+# Specific directories to ignore
+blender/benchmark/
+~/Downloads/
+~/Pictures/
+~/Documents/
+~/Videos/
+~/Music/
+~/Desktop/

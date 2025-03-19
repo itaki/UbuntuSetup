@@ -1,0 +1,30 @@
+{
+  "created": "2024-10-12T12:05:00+00:00",
+  "updated": "2024-10-12T12:05:00+00:00",
+  "name": "001-deny-nuke-internet",
+  "enabled": true,
+  "precedence": false,
+  "action": "deny",
+  "duration": "always",
+  "operator": {
+    "type": "list",
+    "operand": "list",
+    "data": "[{\"type\": \"regexp\", \"operand\": \"process.path\", \"sensitive\": false, \"data\": \"^/usr/local/Nuke.*\"}, {\"type\": \"regexp\", \"operand\": \"dest.ip\", \"sensitive\": false, \"data\": \".*\"}]",
+    "list": [
+      {
+        "type": "regexp",
+        "operand": "process.path",
+        "sensitive": false,
+        "data": "^/usr/local/Nuke.*",
+        "list": null
+      },
+      {
+        "type": "regexp",
+        "operand": "dest.ip",
+        "sensitive": false,
+        "data": ".*",
+        "list": null
+      }
+    ]
+  }
+} 
