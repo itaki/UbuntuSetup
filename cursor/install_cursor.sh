@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Cursor Installation Script
-# This script installs Cursor AI IDE
+# This script installs Cursor AI IDE automatically in the background
 
 # Define paths and URLs
 VERSION_HISTORY_URL="https://raw.githubusercontent.com/oslook/cursor-ai-downloads/main/version-history.json"
@@ -69,22 +69,14 @@ check_dependencies() {
         missing_deps+=("libfuse2")
     fi
     
-    # Install missing dependencies
+    # Install missing dependencies automatically
     if [ ${#missing_deps[@]} -ne 0 ]; then
-        echo "Missing dependencies: ${missing_deps[*]}"
-        read -p "Would you like to install the missing dependencies? (y/n): " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            echo "Installing missing dependencies: ${missing_deps[*]}"
-            sudo apt-get update
-            sudo apt-get install -y "${missing_deps[@]}" || {
-                echo "Failed to install dependencies."
-                exit 1
-            }
-        else
-            echo "Dependencies are required for Cursor to work properly."
+        echo "Installing missing dependencies: ${missing_deps[*]}"
+        sudo apt-get update
+        sudo apt-get install -y "${missing_deps[@]}" || {
+            echo "Failed to install dependencies."
             exit 1
-        fi
+        }
     fi
 
     # Verify FUSE setup
@@ -100,7 +92,6 @@ check_dependencies() {
     if getent group fuse > /dev/null; then
         if ! groups | grep -q fuse; then
             sudo usermod -a -G fuse "$USER"
-            echo "Added user to fuse group. You may need to log out and back in for this to take effect."
         fi
     fi
 }
@@ -125,7 +116,6 @@ kill_cursor_processes() {
         local cursor_processes=$(ps aux | grep -E '(/cursor|cursor.appimage)' | grep -v "grep" | grep -v "install_cursor.sh" | grep -v "$SCRIPT_PID" | grep -v "$PARENT_PID" | awk '{print $2}')
         if [ -n "$cursor_processes" ]; then
             for pid in $cursor_processes; do
-                # Double check that we're not killing ourselves
                 if [ "$pid" != "$SCRIPT_PID" ] && [ "$pid" != "$PARENT_PID" ]; then
                     echo "Closing Cursor process: $pid"
                     kill $pid 2>/dev/null
@@ -152,16 +142,6 @@ kill_cursor_processes() {
             done
             sleep 1
         fi
-        
-        # Check if all processes are killed
-        if pgrep -f "cursor" | grep -v "$SCRIPT_PID" | grep -v "$PARENT_PID" | grep -v "install_cursor.sh" > /dev/null; then
-            echo "Warning: Some Cursor processes could not be terminated."
-            echo "This might affect the installation. Consider closing them manually."
-        else
-            echo "All Cursor processes successfully terminated."
-        fi
-    else
-        echo "No Cursor processes found running."
     fi
 }
 
@@ -196,28 +176,23 @@ install_cursor() {
     fi
     
     echo "Cursor installed successfully!"
-    echo "All user preferences, extensions, and settings have been preserved."
 }
 
 # Function to setup new installation
 setup_new_installation() {
+    # Download icon
+    echo "Downloading Cursor icon..."
+    curl -L "$ICON_URL" -o /tmp/cursor.png || {
+        echo "Failed to download icon. Using default icon."
+    }
+    
+    if [ -f "/tmp/cursor.png" ]; then
+        mv /tmp/cursor.png "$ICON_PATH"
+    fi
+    
     # Create desktop entry
-    read -p "Would you like to create a desktop entry for Cursor? (y/n): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        # Download icon
-        echo "Downloading Cursor icon..."
-        curl -L "$ICON_URL" -o /tmp/cursor.png || {
-            echo "Failed to download icon. Using default icon."
-        }
-        
-        if [ -f "/tmp/cursor.png" ]; then
-            mv /tmp/cursor.png "$ICON_PATH"
-        fi
-        
-        # Create desktop entry
-        echo "Creating desktop entry..."
-        cat > "$DESKTOP_ENTRY_PATH" <<EOL
+    echo "Creating desktop entry..."
+    cat > "$DESKTOP_ENTRY_PATH" <<EOL
 [Desktop Entry]
 Version=1.0
 Name=Cursor AI IDE
@@ -232,29 +207,23 @@ StartupWMClass=Cursor
 StartupNotify=true
 EOL
 
-        chmod +x "$DESKTOP_ENTRY_PATH"
-        
-        # Update desktop database
-        update-desktop-database "$LOCAL_APPS" 2>/dev/null || true
-        
-        echo "Desktop entry created successfully."
-    else
-        echo "Skipping desktop entry creation."
-    fi
+    chmod +x "$DESKTOP_ENTRY_PATH"
+    
+    # Update desktop database
+    update-desktop-database "$LOCAL_APPS" 2>/dev/null || true
+    
+    echo "Desktop entry created successfully."
 }
 
 # Main script
-echo "=== Cursor AI IDE Installer ==="
-
-# INFORMATION SECTION
-echo "=== Information Section ==="
+echo "=== Cursor AI IDE Auto-Update Script ==="
 
 # Check if Cursor is installed
 if [ ! -f "$APPIMAGE_PATH" ]; then
     IS_NEW_INSTALL=true
-    echo "Cursor is not installed."
+    echo "Cursor is not installed. Performing new installation..."
 else
-    echo "Cursor is installed."
+    echo "Cursor is installed. Checking for updates..."
 fi
 
 # Check online repository for latest version
@@ -284,25 +253,8 @@ else
         CURSOR_URL="$RECENT_APPIMAGE"
     else
         echo "No recent AppImage found in Downloads directory."
-        echo "Please run this script again when you have internet connectivity."
         exit 1
     fi
-fi
-
-# INSTALL SECTION
-echo
-echo "=== Install Section ==="
-
-# Always ask if user wants to install/update
-if [ "$IS_NEW_INSTALL" = true ]; then
-    read -p "Would you like to install Cursor version $LATEST_VERSION? (y/n) " -n 1 -r
-else
-    read -p "Would you like to update to version $LATEST_VERSION? (y/n) " -n 1 -r
-fi
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo "Installation cancelled."
-    exit 0
 fi
 
 # Kill all running Cursor processes
@@ -328,7 +280,6 @@ chmod +x "$APPIMAGE_PATH"
 
 # NEW INSTALL SECTION (if applicable)
 if [ "$IS_NEW_INSTALL" = true ]; then
-    echo
     echo "=== New Install Section ==="
     
     # Check dependencies
@@ -338,27 +289,5 @@ if [ "$IS_NEW_INSTALL" = true ]; then
     setup_new_installation
 fi
 
-# EXIT SECTION
-echo
-echo "=== Installation Complete ==="
-
-# Provide info about what the script did
-if [ "$IS_NEW_INSTALL" = true ]; then
-    echo "New install of Cursor completed successfully."
-    if [ -f "$DESKTOP_ENTRY_PATH" ]; then
-        echo "Created a desktop entry for easy access."
-    fi
-else
-    echo "Cursor has been updated successfully."
-fi
-
-# Always offer to launch Cursor
-echo -e "\n${GREEN}Installation complete!${NC}"
-echo -e "${YELLOW}Would you like to open Cursor now? (y/n):${NC}"
-read -r response
-if [[ "$response" =~ ^[Yy]$ ]]; then
-    echo -e "${GREEN}Launching Cursor...${NC}"
-    "$APPIMAGE_PATH" --no-sandbox &
-fi
-
+echo "=== Auto-Update Complete ==="
 exit 0

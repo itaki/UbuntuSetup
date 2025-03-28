@@ -31,10 +31,35 @@ chmod +x pinokio_install.sh
 ./pinokio_install.sh
 ```
 
+## Automatic Startup
+Pinokio is configured to start automatically when you log in. This is managed through a systemd user service that:
+- Starts Pinokio after network connectivity is available
+- Automatically restarts Pinokio if it crashes
+- Runs with proper permissions and settings
+
+You can manage the automatic startup using these commands:
+```bash
+# Check Pinokio service status
+systemctl --user status pinokio.service
+
+# Stop Pinokio
+systemctl --user stop pinokio.service
+
+# Start Pinokio
+systemctl --user start pinokio.service
+
+# Disable automatic startup
+systemctl --user disable pinokio.service
+
+# Re-enable automatic startup
+systemctl --user enable pinokio.service
+```
+
 ## After Installation
 You can start Pinokio by:
 - Running `pinokio` from the terminal
 - Clicking on the Pinokio icon in your applications menu
+- Waiting for automatic startup at login
 
 ### Fixing Desktop Shortcut Issues
 If Pinokio doesn't appear in your applications menu or desktop after installation, run the fix script:
@@ -67,12 +92,14 @@ And they will open directly in Pinokio instead of the App Center.
 - The installation requires administrative privileges
 - The download size is approximately 100MB
 - The application is installed in `/opt/Pinokio/`
+- The service runs as a user service, not requiring root privileges
 
 ## Troubleshooting
-If you encounter any issues during installation:
+If you encounter any issues:
 - Make sure the .deb file has been downloaded correctly
 - Ensure you have administrative privileges
 - Check your internet connection if dependency installation fails
 - If the application doesn't appear in the menu, run the `fix_desktop_shortcut.sh` script
 - If Pinokio links open in the wrong application, run the `fix_protocol_handler.sh` script
 - If protocol handling still doesn't work after running the fix script, try logging out and back in
+- If Pinokio doesn't start automatically, check the service status with `systemctl --user status pinokio.service`
