@@ -7,6 +7,7 @@
 LOCAL_BIN="$HOME/.local/bin"
 UPDATE_SCRIPT="$LOCAL_BIN/update_cursor.sh"
 CRON_JOB="0 0 * * * $UPDATE_SCRIPT"
+DESKTOP_ENTRY="$HOME/.config/autostart/cursor-updater.desktop"
 
 # Create local bin directory if it doesn't exist
 mkdir -p "$LOCAL_BIN"
@@ -28,9 +29,26 @@ else
     exit 1
 fi
 
-# Test the update script
-echo "Testing update script..."
-"$UPDATE_SCRIPT"
+# Set up startup entry
+echo "Setting up startup entry..."
+mkdir -p "$HOME/.config/autostart"
+cat > "$DESKTOP_ENTRY" <<EOL
+[Desktop Entry]
+Type=Application
+Name=Cursor Updater
+Comment=Checks for and installs Cursor AI IDE updates
+Exec=/bin/bash -c "sleep 60 && $UPDATE_SCRIPT"
+Terminal=false
+Hidden=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+EOL
 
-echo "Setup complete! Cursor will now check for updates nightly at midnight."
-echo "You can also run '$UPDATE_SCRIPT' manually at any time to check for updates." 
+# Make desktop entry executable
+chmod +x "$DESKTOP_ENTRY"
+
+echo "Setup complete! Cursor will now check for updates:"
+echo "- On system startup (after 60 seconds)"
+echo "- Nightly at midnight"
+echo "To test the update script, please open a new terminal and run:"
+echo "$UPDATE_SCRIPT" 

@@ -22,6 +22,53 @@ log() {
     echo "$1"
 }
 
+# Function to kill Cursor processes
+kill_cursor_processes() {
+    if pgrep -f "cursor" > /dev/null; then
+        log "Killing all Cursor processes..."
+        
+        # Get the PID of this script to avoid killing itself
+        local SCRIPT_PID=$$
+        local PARENT_PID=$PPID
+        
+        # First try to kill main processes, excluding this script
+        pkill -f "/tmp/.mount_cursor.*/cursor --no-sandbox" 2>/dev/null
+        pkill -f "cursor.appimage --no-sandbox" 2>/dev/null
+        sleep 2
+        
+        # If processes are still running, kill them individually
+        local cursor_processes=$(ps aux | grep -E '(/cursor|cursor.appimage)' | grep -v "grep" | grep -v "update_cursor.sh" | grep -v "$SCRIPT_PID" | grep -v "$PARENT_PID" | awk '{print $2}')
+        if [ -n "$cursor_processes" ]; then
+            for pid in $cursor_processes; do
+                if [ "$pid" != "$SCRIPT_PID" ] && [ "$pid" != "$PARENT_PID" ]; then
+                    log "Closing Cursor process: $pid"
+                    kill $pid 2>/dev/null
+                fi
+            done
+            sleep 2
+        fi
+        
+        # Force kill if necessary, but be careful not to kill this script
+        if pgrep -f "cursor" | grep -v "$SCRIPT_PID" | grep -v "$PARENT_PID" > /dev/null; then
+            log "Some processes are stubborn. Using force kill..."
+            for pid in $(pgrep -f "/tmp/.mount_cursor" | grep -v "$SCRIPT_PID" | grep -v "$PARENT_PID"); do
+                if [ -n "$pid" ]; then
+                    log "Force closing Cursor process: $pid"
+                    kill -9 $pid 2>/dev/null
+                fi
+            done
+            
+            for pid in $(pgrep -f "cursor.appimage" | grep -v "$SCRIPT_PID" | grep -v "$PARENT_PID"); do
+                if [ -n "$pid" ]; then
+                    log "Force closing Cursor process: $pid"
+                    kill -9 $pid 2>/dev/null
+                fi
+            done
+            sleep 1
+        fi
+    fi
+}
+
 # Function to get the latest version and download URL from GitHub repository
 get_latest_version() {
     log "Checking online repository for latest version..."
@@ -114,17 +161,8 @@ else
     fi
 fi
 
-# Check if update is needed
-if [ "$CURRENT_VERSION" = "$LATEST_VERSION" ]; then
-    log "No update needed. Current version is up to date."
-    exit 0
-fi
-
-# Check if Cursor is running
-if pgrep -f "cursor" > /dev/null; then
-    log "Cursor is currently running. Updates will be applied next time Cursor is closed."
-    # We'll still download the update but won't apply it if Cursor is running
-fi
+# Kill all running Cursor processes
+kill_cursor_processes
 
 # Download the latest version to a temporary file
 log "Downloading latest Cursor version..."
@@ -143,17 +181,6 @@ fi
 
 # Make the temporary file executable
 chmod +x "$TEMP_PATH"
-
-# Check if Cursor is running
-if pgrep -f "cursor" > /dev/null; then
-    log "Cursor is running. Update downloaded but will be applied on next startup."
-    # Save the update for next time
-    mkdir -p "$HOME/.local/share/cursor_update"
-    mv "$TEMP_PATH" "$HOME/.local/share/cursor_update/cursor.appimage.new"
-    log "Update saved to $HOME/.local/share/cursor_update/cursor.appimage.new"
-    log "It will be applied next time Cursor is not running."
-    exit 0
-fi
 
 # Backup the current version
 BACKUP_PATH="${APPIMAGE_PATH}.backup"
